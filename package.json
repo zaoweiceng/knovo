@@ -1,0 +1,43 @@
+{
+  "name": "atomic-knowledge",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "scripts": {
+    "dev": "concurrently -k \"node --watch server/index.mjs\" \"vite --host 127.0.0.1\"",
+    "build": "tsc -b && vite build",
+    "start": "node server/index.mjs",
+    "test": "node --test tests/*.test.mjs",
+    "validate": "node scripts/knowledge.mjs validate",
+    "maintain": "node scripts/knowledge.mjs",
+    "package:skills": "node scripts/package-skills.mjs",
+    "backup": "node scripts/backup.mjs",
+    "demo": "node scripts/demo.mjs",
+    "install:skills": "npm run package:skills && node scripts/install-skills.mjs",
+    "format": "prettier --write src server shared scripts tests vite.config.ts"
+  },
+  "dependencies": {
+    "@xyflow/react": "^12.8.0",
+    "adm-zip": "^0.5.16",
+    "chokidar": "^4.0.3",
+    "express": "^5.1.0",
+    "lucide-react": "^0.468.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1",
+    "yaml": "^2.8.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.1.0",
+    "@types/react-dom": "^19.1.0",
+    "@vitejs/plugin-react": "^4.7.0",
+    "concurrently": "^9.2.0",
+    "prettier": "^3.9.8",
+    "typescript": "^5.8.0",
+    "vite": "^6.3.0"
+  }
+}

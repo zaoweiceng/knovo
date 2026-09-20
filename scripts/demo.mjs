@@ -1,0 +1,103 @@
+import fs from "node:fs";
+import path from "node:path";
+import { serializeNote, day } from "../shared/protocol.mjs";
+const root = path.resolve(process.env.KNOWLEDGE_DIR || "content");
+const now = new Date().toISOString();
+const entries = [
+  {
+    id: "demo-atomic",
+    title: "什么是原子知识点？",
+    summary:
+      "用一个明确的问题划定知识边界，让每条笔记都可以独立理解、检索与复习。",
+    category: ["学习方法", "知识管理"],
+    tags: ["原子笔记", "示例"],
+    related: ["demo-links", "demo-review"],
+    body: "## 一个知识点，回答一个问题\n\n原子知识点是能够独立理解和复习的最小有意义单元。它不等于一句话，也不由固定字数决定。\n\n例如，“什么是上下文窗口？”适合作为一个知识点。“大模型入门大全”则包含多个独立问题，应该拆分。\n\n## 如何判断需要拆分？\n\n试着分别为内容中的两个部分提出问题。如果它们可以独立回答、独立复习，就可以拆成两个知识点。\n\n> 保留足够的上下文，比追求短小更重要。\n\n这是用于体验网站的示例笔记，可直接删除。",
+  },
+  {
+    id: "demo-context",
+    title: "上下文窗口决定了什么？",
+    summary:
+      "上下文窗口限定一次模型处理能够容纳的信息范围，与长期记忆不是同一个概念。",
+    category: ["计算机", "人工智能", "大模型", "基础概念"],
+    tags: ["上下文", "大模型", "示例"],
+    related: ["demo-rag"],
+    body: "## 有限的工作空间\n\n上下文窗口是模型单次处理时可用的信息容量。具体计算方式与输入、输出限制依模型而异，使用时应核对对应模型文档。\n\n对话越来越长时，并不意味着模型会永久保存所有历史。应用可能截断、概括或重新检索历史内容。\n\n## 一个直观例子\n\n把上下文理解为书桌：当前放在桌面上的资料可以参与处理；放回书柜的资料，需要再次取出才能使用。\n\n这是示例笔记，未指定具体模型参数。",
+  },
+  {
+    id: "demo-tools",
+    title: "工具调用为什么需要参数校验？",
+    summary:
+      "区分模型生成的参数与可信执行输入，在真正执行前校验结构和业务约束。",
+    category: ["计算机", "人工智能", "大模型", "Agent", "工具调用"],
+    tags: ["Agent", "参数校验", "示例"],
+    prerequisites: ["demo-context"],
+    related: ["demo-agent"],
+    body: "## 参数是数据，不是保证\n\n模型提出的工具参数仍然需要验证。结构符合要求，只能说明字段形式正确，不能证明执行一定合理。\n\n校验可以分成两层：\n\n| 层次 | 检查内容 | 例子 |\n| --- | --- | --- |\n| 结构校验 | 类型、必填字段、取值范围 | 金额必须是正数 |\n| 业务校验 | 当前环境中的约束 | 金额不能超过可用余额 |\n\n## 校验失败怎么办？\n\n返回明确错误，让调用方修正参数。不要猜测参数后继续执行不可逆操作。\n\n这是用于体验多级目录与前置关联的示例笔记。",
+  },
+  {
+    id: "demo-agent",
+    title: "Agent 的执行循环是什么？",
+    summary:
+      "通过观察、决策、调用工具与检查结果的循环，理解 Agent 如何推进一项任务。",
+    category: ["计算机", "人工智能", "大模型", "Agent"],
+    tags: ["Agent", "执行循环", "示例"],
+    prerequisites: ["demo-tools"],
+    body: "## 从一次回答到循环执行\n\n一个简化的 Agent 循环可以写为：\n\n1. 读取目标和当前状态。\n2. 决定下一步动作。\n3. 调用工具或生成结果。\n4. 检查动作结果，判断是否完成。\n5. 未完成时进入下一轮。\n\n## 什么时候停止？\n\n目标达成、需要用户补充信息、出现不可继续的错误或达到预算时，都应该结束或暂停循环。\n\n循环次数多，不代表效果更好。每次动作都应减少与目标之间的差距。\n\n这是概念性示例，不对应某个特定框架。",
+  },
+  {
+    id: "demo-rag",
+    title: "检索增强生成解决什么问题？",
+    summary:
+      "在生成回答前检索相关材料，将外部知识放入当前上下文，帮助回答有依据的问题。",
+    category: ["计算机", "人工智能", "大模型", "知识检索"],
+    tags: ["RAG", "检索", "示例"],
+    prerequisites: ["demo-context"],
+    related: ["demo-links"],
+    status: "learning",
+    body: "## 先找资料，再组织回答\n\n检索增强生成（RAG）通常先从资料库检索相关内容，再将这些内容交给模型生成答案。它让系统能够使用当前可获取的资料，而不完全依赖模型已有知识。\n\n## 仍然可能出错\n\n检索可能漏掉关键材料，材料可能过时，模型也可能错误解释材料。检索结果并不自动构成正确答案。\n\n## 待理解\n\n如何评估检索召回率与回答正确性之间的关系？这是一个值得后续单独展开的问题。\n\n这是展示“待理解”状态的示例笔记。",
+  },
+  {
+    id: "demo-links",
+    title: "目录与知识关联有什么区别？",
+    summary:
+      "目录回答“放在哪里”，关联回答“与谁有关”；用两种结构表达不同的信息。",
+    category: ["学习方法", "知识管理"],
+    tags: ["知识网络", "分类", "示例"],
+    prerequisites: ["demo-atomic"],
+    body: "## 目录表达归属\n\n每个知识点有一个主分类，可以逐层深入，例如“计算机 → 人工智能 → 大模型 → Agent”。这方便浏览和定位。\n\n## 关联表达理解关系\n\n前置知识说明理解顺序，相关知识说明主题联系。相关知识可以横跨目录，并不要求放在同一个文件夹。\n\n右侧侧栏展示这些关联；知识网络可以探索两跳内的联系。正文不需要重复写导航清单。\n\n这是网站使用方式的示例笔记。",
+  },
+  {
+    id: "demo-review",
+    title: "为什么复习前先尝试回忆？",
+    summary: "先不看正文，用自己的话尝试解释，再对照笔记发现遗漏和模糊之处。",
+    category: ["学习方法", "复习"],
+    tags: ["主动回忆", "示例"],
+    related: ["demo-atomic"],
+    body: "## 先暴露理解的缺口\n\n读到熟悉的句子时，我们容易产生“已经掌握”的感觉。先尝试回忆，可以更直接地发现哪些部分还说不清楚。\n\n## 在这个网站中怎么做？\n\n复习时先阅读标题和简介，尝试自行解释；再展开正文，检查自己的遗漏。根据实际情况选择“没掌握”“模糊”或“掌握”。\n\n复习间隔只是默认安排，不是对记忆效果的保证，可以暂停不需要重复回顾的知识点。\n\n这是复习流程的示例笔记。",
+  },
+];
+let count = 0;
+for (const e of entries) {
+  const dest = path.join(root, ...e.category, e.id + ".md");
+  if (fs.existsSync(dest)) continue;
+  const note = {
+    schema_version: 1,
+    status: "ready",
+    tags: [],
+    prerequisites: [],
+    related: [],
+    aliases: [],
+    merged_from: [],
+    created_at: now,
+    updated_at: now,
+    learning_events: [{ date: day(), summary: "阅读并体验示例知识点。" }],
+    ...e,
+  };
+  fs.mkdirSync(path.dirname(dest), { recursive: true });
+  fs.writeFileSync(dest, serializeNote(note));
+  count++;
+}
+console.log(
+  `已写入 ${count} 篇明确标记的示例笔记；全部以 demo- 开头，可随时删除。`,
+);

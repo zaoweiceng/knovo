@@ -1,0 +1,8 @@
+node_modules/
+dist/
+artifacts/
+backups/
+.knowledge/
+content/
+*.tsbuildinfo
+.DS_Store
