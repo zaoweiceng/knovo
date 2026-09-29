@@ -4,8 +4,10 @@ import { DatabaseSync, backup } from "node:sqlite";
 import { acquireLock } from "../shared/protocol.mjs";
 const root = path.resolve(process.env.KNOWLEDGE_DIR || "content"),
   state = path.join(root, ".knowledge");
+const args = process.argv.slice(2);
+if (args[0] === "--") args.shift();
 const dest = path.resolve(
-  process.argv[2] || `backups/${new Date().toISOString().replaceAll(":", "-")}`,
+  args[0] || `backups/${new Date().toISOString().replaceAll(":", "-")}`,
 );
 if (dest === root || dest.startsWith(root + path.sep))
   throw Error("备份目录不能放在知识目录中");
@@ -15,15 +17,18 @@ try {
   fs.cpSync(root, dest, {
     recursive: true,
     filter: (p) =>
-      !p.endsWith("write.lock") && !/knowledge\.sqlite(?:-wal|-shm)?$/.test(p),
+      !p.endsWith("write.lock") &&
+      !/(?:knowledge|assets)\.sqlite(?:-wal|-shm)?$/.test(p),
   });
-  const dbPath = path.join(state, "knowledge.sqlite");
-  if (fs.existsSync(dbPath)) {
-    const db = new DatabaseSync(dbPath);
-    try {
-      await backup(db, path.join(dest, ".knowledge", "knowledge.sqlite"));
-    } finally {
-      db.close();
+  for (const name of ["knowledge.sqlite", "assets.sqlite"]) {
+    const dbPath = path.join(state, name);
+    if (fs.existsSync(dbPath)) {
+      const db = new DatabaseSync(dbPath);
+      try {
+        await backup(db, path.join(dest, ".knowledge", name));
+      } finally {
+        db.close();
+      }
     }
   }
   console.log(`已备份到 ${dest}`);

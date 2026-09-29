@@ -76,8 +76,8 @@ export default function Heatmap({
                     key={i}
                     disabled={c.disabled}
                     className={`heat-cell level-${level} ${c.disabled ? "invisible" : ""}`}
-                    title={`${c.date} · 新增 ${n} 个知识点`}
-                    aria-label={`${c.date} 新增 ${n} 个知识点`}
+                    title={`${c.date} · 学习 ${n} 个知识点`}
+                    aria-label={`${c.date} 学习 ${n} 个知识点`}
                     onClick={() => onDay(c.date)}
                   />
                 );
@@ -88,8 +88,8 @@ export default function Heatmap({
       </div>
       <div className="heat-footer">
         <span>
-          共新增 <b>{total}</b> 个知识点{" "}
-          <span className="muted">· 按首次入库日期统计</span>
+          累计 <b>{total}</b> 次知识点学习{" "}
+          <span className="muted">· 按学习日期统计，同日同一知识点计一次</span>
         </span>
         <div className="legend">
           少

@@ -1,0 +1,20 @@
+[Unit]
+Description=Zhixu knowledge library
+After=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/srv/knovo/app
+EnvironmentFile=/srv/knovo/knowledge.env
+Environment=PATH=/usr/local/bin:/usr/bin:/bin
+ExecStart=/usr/bin/node /srv/knovo/app/server/index.mjs
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+StandardOutput=append:/srv/knovo/logs/service.log
+StandardError=append:/srv/knovo/logs/service.log
+UMask=0077
+NoNewPrivileges=true
+
+[Install]
+WantedBy=default.target

@@ -1,0 +1,22 @@
+[Unit]
+Description=Zhixu knowledge library
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=knovo
+Group=knovo
+WorkingDirectory=/srv/knovo/app
+EnvironmentFile=/srv/knovo/knowledge.env
+ExecStart=/usr/bin/node /srv/knovo/app/server/index.mjs
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+
+[Install]
+WantedBy=multi-user.target

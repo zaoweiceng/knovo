@@ -11,6 +11,7 @@ import {
 import "@xyflow/react/dist/style.css";
 import { Expand, ArrowUpRight, Network } from "lucide-react";
 import { api } from "./types";
+import FilterPicker from "./FilterPicker";
 type GNode = { id: string; title: string; category: string[]; hop: number };
 type GData = {
   nodes: GNode[];
@@ -20,12 +21,12 @@ type GData = {
   depth: number;
 };
 const palette = [
-  "#66845b",
-  "#6989b0",
-  "#b78d5d",
-  "#987baa",
-  "#549b94",
-  "#b87678",
+  "#333333",
+  "#666666",
+  "#999999",
+  "#555555",
+  "#888888",
+  "#bbbbbb",
 ];
 function color(s: string) {
   let n = 0;
@@ -84,14 +85,14 @@ export default function Graph({
               },
               data: { label: n.title },
               style: {
-                background: n.id === center ? "#4d6b4a" : "#fff",
-                color: n.id === center ? "white" : "#27312a",
+                background: n.id === center ? "#626262" : "#ffffff",
+                color: n.id === center ? "white" : "#2e2e2e",
                 border: `2px solid ${color(n.category[0])}`,
                 borderRadius: 12,
                 width: 180,
                 padding: 12,
                 fontSize: 12,
-                boxShadow: "0 3px 12px #18251a0a",
+                boxShadow: "0 3px 12px #2121210a",
               },
             };
           }),
@@ -114,18 +115,12 @@ export default function Graph({
         <Network size={30} className="muted" />
       </div>
       <div className="graph-toolbar">
-        <select
-          aria-label="网络分类"
+        <FilterPicker
+          label="网络分类"
+          categories={categories}
           value={category}
-          onChange={(e) => setCategory(e.target.value)}
-        >
-          <option value="">全部目录</option>
-          {categories.map((c) => (
-            <option key={JSON.stringify(c)} value={JSON.stringify(c)}>
-              {c.join(" / ")}
-            </option>
-          ))}
-        </select>
+          onChange={setCategory}
+        />
         <select
           aria-label="关联类型"
           value={type}
@@ -158,10 +153,10 @@ export default function Graph({
             type: "default",
             markerEnd:
               e.type === "prerequisite"
-                ? { type: MarkerType.ArrowClosed, color: "#91a08c" }
+                ? { type: MarkerType.ArrowClosed, color: "#9b9b9b" }
                 : undefined,
             style: {
-              stroke: e.type === "prerequisite" ? "#91a08c" : "#b3bdc9",
+              stroke: e.type === "prerequisite" ? "#9b9b9b" : "#bcbcbc",
               strokeDasharray: e.type === "related" ? "5 5" : undefined,
             },
           }))}
@@ -176,10 +171,10 @@ export default function Graph({
           fitViewOptions={{ padding: 0.25 }}
           minZoom={0.08}
         >
-          <Background color="#dce2dd" gap={24} />
+          <Background color="#e0e0e0" gap={24} />
           <Controls />
           <MiniMap
-            nodeColor={(n) => (n.id === center ? "#4d6b4a" : "#cad5c6")}
+            nodeColor={(n) => (n.id === center ? "#626262" : "#d2d2d2")}
             pannable
             zoomable
           />

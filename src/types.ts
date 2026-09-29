@@ -1,5 +1,6 @@
 export type Review = { id: string; stage: number; due: string; paused: number };
 export type Note = {
+  hash: string;
   id: string;
   title: string;
   summary: string;
@@ -36,6 +37,7 @@ export type Stats = {
   learning: number;
   today: string;
   days: { date: string; count: number }[];
+  learningDays: { date: string; count: number }[];
   version: number;
   errors: { file: string; message: string }[];
 };
@@ -44,6 +46,10 @@ export async function api<T>(url: string, options?: RequestInit): Promise<T> {
     ...options,
     headers: { "Content-Type": "application/json", ...options?.headers },
   });
+  if (!res.headers.get("content-type")?.includes("application/json"))
+    throw Error(
+      `接口返回异常（HTTP ${res.status}），请确认后端已更新并重启，然后刷新页面`,
+    );
   const data = await res.json();
   if (!res.ok) throw Error(data.error || "请求失败");
   return data;

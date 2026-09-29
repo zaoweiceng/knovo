@@ -1,4 +1,12 @@
-import { useEffect, useRef, useState, lazy, Suspense } from "react";
+import KnowledgeTree from "./KnowledgeTree";
+import {
+  useEffect,
+  useRef,
+  useState,
+  lazy,
+  Suspense,
+  type CSSProperties,
+} from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import {
@@ -26,6 +34,7 @@ import {
   Play,
   RefreshCw,
   Leaf,
+  Trash2,
 } from "lucide-react";
 import {
   api,
@@ -34,9 +43,21 @@ import {
   type Stats,
   type Relation,
 } from "./types";
+const NoteEditor = lazy(() => import("./NoteEditor"));
+import ExportDialog from "./ExportDialog";
+import KnowledgeImage from "./KnowledgeImage";
+import PromptCard from "./PromptCard";
 import Heatmap from "./Heatmap";
+import SidebarResizer from "./SidebarResizer";
+import FilterPicker from "./FilterPicker";
 const Graph = lazy(() => import("./Graph"));
 type View = "home" | "library" | "detail" | "review" | "graph" | "timeline";
+type TrashItem = {
+  token: string;
+  id: string;
+  title: string;
+  deleted_at: string;
+};
 type ImportResult = { filename: string; status: string; message?: string };
 const emptyStats: Stats = {
   total: 0,
@@ -45,6 +66,7 @@ const emptyStats: Stats = {
   learning: 0,
   today: new Date().toLocaleDateString("sv-SE"),
   days: [],
+  learningDays: [],
   version: 0,
   errors: [],
 };
@@ -59,11 +81,7 @@ function Markdown({ body }: { body: string }) {
               {children}
             </a>
           ),
-          img: ({ alt, src }) => (
-            <a href={src} target="_blank" rel="noreferrer">
-              [图片：{alt || "查看图片"}]
-            </a>
-          ),
+          img: ({ alt, src }) => <KnowledgeImage src={src} alt={alt} />,
         }}
       >
         {body}
@@ -71,141 +89,68 @@ function Markdown({ body }: { body: string }) {
     </div>
   );
 }
-function Tree({
-  paths,
-  selected,
-  onSelect,
-  notes,
-  onNote,
-  active,
-  query,
-  prefix = [],
-}: {
-  paths: string[][];
-  selected: string[];
-  onSelect: (p: string[]) => void;
-  notes: Note[];
-  onNote: (id: string) => void;
-  active?: string;
-  query: string;
-  prefix?: string[];
-}) {
-  const names = [
-    ...new Set(
-      paths
-        .filter(
-          (p) => prefix.every((x, i) => p[i] === x) && p.length > prefix.length,
-        )
-        .map((p) => p[prefix.length]),
-    ),
-  ].sort();
-  return (
-    <>
-      {names.map((name) => (
-        <TreeBranch
-          key={name}
-          {...{ paths, selected, onSelect, notes, onNote, active, query }}
-          prefix={[...prefix, name]}
-          name={name}
-        />
-      ))}
-    </>
-  );
-}
-function TreeBranch(props: {
-  paths: string[][];
-  selected: string[];
-  onSelect: (p: string[]) => void;
-  notes: Note[];
-  onNote: (id: string) => void;
-  active?: string;
-  query: string;
-  prefix: string[];
-  name: string;
-}) {
-  const {
-    prefix,
-    name,
-    paths,
-    selected,
-    onSelect,
-    notes,
-    onNote,
-    active,
-    query,
-  } = props;
-  const matched = notes.filter((n) =>
-    prefix.every((x, i) => n.category[i] === x),
-  );
-  const activeIn = matched.some((n) => n.id === active);
-  const [open, setOpen] = useState(prefix.length === 1 || activeIn);
-  useEffect(() => {
-    if (activeIn) setOpen(true);
-  }, [activeIn]);
-  if (
-    query &&
-    !matched.some((n) =>
-      (n.title + n.category.join(""))
-        .toLowerCase()
-        .includes(query.toLowerCase()),
-    )
-  )
-    return null;
-  const exact = matched.filter((n) => n.category.length === prefix.length);
-  const isSelected = JSON.stringify(selected) === JSON.stringify(prefix);
-  return (
-    <div className="tree-branch">
-      <div className={`tree-row ${isSelected ? "selected" : ""}`}>
-        <button
-          aria-label={`${open ? "折叠" : "展开"} ${name}`}
-          className="tree-toggle"
-          onClick={() => setOpen(!open)}
-        >
-          {open || query ? (
-            <ChevronDown size={12} />
-          ) : (
-            <ChevronRight size={12} />
-          )}
-        </button>
-        <button
-          className="tree-name"
-          onClick={() => {
-            onSelect(prefix);
-            setOpen(true);
-          }}
-        >
-          <Folder size={13} />
-          <span>{name}</span>
-          <small>{matched.length}</small>
-        </button>
-      </div>
-      {(open || query) && (
-        <div className="tree-children">
-          <Tree {...props} />
-          {exact
-            .filter(
-              (n) =>
-                !query ||
-                (n.title + n.category.join(""))
-                  .toLowerCase()
-                  .includes(query.toLowerCase()),
-            )
-            .map((n) => (
-              <button
-                className={`tree-note ${active === n.id ? "active" : ""}`}
-                onClick={() => onNote(n.id)}
-                key={n.id}
-              >
-                <span className="note-dot" />
-                {n.title}
-              </button>
-            ))}
-        </div>
-      )}
-    </div>
-  );
-}
 export default function App() {
+  const [sidebarWidth, setSidebarWidth] = useState(() => {
+    try {
+      const n = Number(localStorage.getItem("knowledge-sidebar-width"));
+      return Number.isFinite(n) && n >= 220 && n <= 420 ? n : 244;
+    } catch {
+      return 244;
+    }
+  });
+  useEffect(() => {
+    try {
+      localStorage.setItem("knowledge-sidebar-width", String(sidebarWidth));
+    } catch {}
+  }, [sidebarWidth]);
+  const [trashOpen, setTrashOpen] = useState(false),
+    [trash, setTrash] = useState<TrashItem[]>([]),
+    [deleteTarget, setDeleteTarget] = useState<Detail | null>(null),
+    [deleteBusy, setDeleteBusy] = useState(false),
+    [trashError, setTrashError] = useState("");
+  const openTrash = async () => {
+    setTrashError("");
+    setTrashOpen(true);
+    try {
+      setTrash(await api<TrashItem[]>("/trash"));
+    } catch (e) {
+      setTrashError((e as Error).message);
+    }
+  };
+  const deleteNote = async () => {
+    if (!deleteTarget) return;
+    setDeleteBusy(true);
+    setTrashError("");
+    try {
+      await api("/notes/" + encodeURIComponent(deleteTarget.id), {
+        method: "DELETE",
+        body: JSON.stringify({ expected_hash: deleteTarget.hash }),
+      });
+      setDeleteTarget(null);
+      setSelected(null);
+      setDetail(null);
+      setView("library");
+      setRightOpen(false);
+      await refresh();
+    } catch (e) {
+      setTrashError((e as Error).message);
+    } finally {
+      setDeleteBusy(false);
+    }
+  };
+  const restoreNote = async (token: string) => {
+    setDeleteBusy(true);
+    setTrashError("");
+    try {
+      await api("/trash/" + token + "/restore", { method: "POST" });
+      setTrash(await api<TrashItem[]>("/trash"));
+      await refresh();
+    } catch (e) {
+      setTrashError((e as Error).message);
+    } finally {
+      setDeleteBusy(false);
+    }
+  };
   const [stats, setStats] = useState<Stats>(emptyStats),
     [all, setAll] = useState<Note[]>([]),
     [notes, setNotes] = useState<Note[]>([]),
@@ -242,6 +187,10 @@ export default function App() {
     [fromDate, setFromDate] = useState(""),
     [toDate, setToDate] = useState(""),
     [showIssues, setShowIssues] = useState(false);
+  const [editor, setEditor] = useState<{ id?: string; paste?: boolean } | null>(
+    null,
+  );
+  const [exportOpen, setExportOpen] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const versionRef = useRef(-1);
   const searchRef = useRef<HTMLInputElement>(null);
@@ -330,10 +279,19 @@ export default function App() {
         .catch((e) => setError(e.message));
   }, [view, stats.version]);
   useEffect(() => {
+    let active = true;
+    setDayItems([]);
     if (selectedDay)
-      api<typeof dayItems>("/additions?date=" + selectedDay)
-        .then(setDayItems)
-        .catch((e) => setError(e.message));
+      api<typeof dayItems>("/learning-activity?date=" + selectedDay)
+        .then((items) => {
+          if (active) setDayItems(items);
+        })
+        .catch((e) => {
+          if (active) setError(e.message);
+        });
+    return () => {
+      active = false;
+    };
   }, [selectedDay, stats.version]);
   const read = (id: string) => {
     setSelected(id);
@@ -358,16 +316,52 @@ export default function App() {
     setImporting(true);
     setResults([]);
     try {
-      const payload = await Promise.all(
-        Array.from(files).map(async (f) => {
-          if (f.size > 2 * 1024 * 1024) throw Error(`${f.name} 超过 2 MB`);
-          return { name: f.name, text: await f.text() };
-        }),
-      );
-      const r = await api<ImportResult[]>("/import", {
-        method: "POST",
-        body: JSON.stringify({ files: payload }),
-      });
+      const r: ImportResult[] = [];
+      for (const f of Array.from(files)) {
+        try {
+          if (f.name.toLowerCase().endsWith(".zip")) {
+            if (f.size > 100 * 1024 * 1024)
+              throw Error(`${f.name} 超过 100 MB`);
+            const response = await fetch("/api/import-bundle", {
+              method: "POST",
+              headers: { "Content-Type": "application/zip" },
+              body: f,
+            });
+            const data = await response.json();
+            if (!response.ok)
+              r.push({
+                filename: f.name,
+                status: "error",
+                message: data.error,
+              });
+            else r.push(...data);
+          } else {
+            if (f.size > 2 * 1024 * 1024) {
+              r.push({
+                filename: f.name,
+                status: "error",
+                message: "单篇超过 2 MB",
+              });
+              continue;
+            }
+            r.push(
+              ...(await api<ImportResult[]>("/import", {
+                method: "POST",
+                body: JSON.stringify({
+                  files: [{ name: f.name, text: await f.text() }],
+                }),
+              })),
+            );
+          }
+        } catch (e) {
+          r.push({
+            filename: f.name,
+            status: "error",
+            message: (e as Error).message,
+          });
+        }
+        setResults([...r]);
+      }
       setResults(r);
       await refresh();
     } catch (e) {
@@ -493,7 +487,10 @@ export default function App() {
     </>
   );
   return (
-    <div className="app-shell">
+    <div
+      className="app-shell"
+      style={{ "--sidebar-width": `${sidebarWidth}px` } as CSSProperties}
+    >
       {(leftOpen || rightOpen) && (
         <div
           className="mobile-scrim"
@@ -512,13 +509,6 @@ export default function App() {
             知序<small>KNOWLEDGE GARDEN</small>
           </span>
         </button>
-        <div className="workspace">
-          <span className="workspace-avatar">我</span>
-          <div>
-            我的知识空间<small>让理解不断生长</small>
-          </div>
-          <span className="local-dot" title="本地知识库" />
-        </div>
         <nav className="main-nav">
           <button
             className={view === "home" ? "active" : ""}
@@ -578,7 +568,7 @@ export default function App() {
           />
         </label>
         <div className="tree">
-          <Tree
+          <KnowledgeTree
             paths={categories}
             selected={category}
             notes={all}
@@ -590,11 +580,54 @@ export default function App() {
               setLeftOpen(false);
             }}
             onNote={read}
+            onChanged={async (source, target, deleted) => {
+              if (
+                "category" in source &&
+                source.category.every((x, i) => category[i] === x)
+              )
+                setCategory(
+                  deleted
+                    ? []
+                    : [
+                        ...(target || []),
+                        ...category.slice(source.category.length),
+                      ],
+                );
+              else if (!("category" in source) && target) setCategory(target);
+              if (
+                deleted &&
+                selected &&
+                all.some(
+                  (n) =>
+                    n.id === selected &&
+                    ("category" in source
+                      ? source.category.every((x, i) => n.category[i] === x)
+                      : n.id === source.id),
+                )
+              ) {
+                setSelected(null);
+                setDetail(null);
+                setView("library");
+                setRightOpen(false);
+              }
+              await refresh();
+            }}
           />
           {!all.length && (
             <p className="muted tiny">导入知识后，目录会自动出现。</p>
           )}
         </div>
+        <button
+          className="trash-entry"
+          onClick={() => {
+            setLeftOpen(false);
+            openTrash();
+          }}
+        >
+          <Trash2 size={14} />
+          回收站
+        </button>
+        <SidebarResizer width={sidebarWidth} onChange={setSidebarWidth} />
         <div className="sidebar-bottom">
           <span className="local-dot" />
           本地存储 · 属于你的知识
@@ -637,6 +670,12 @@ export default function App() {
             </span>
           </div>
           <div className="header-actions">
+            <button className="btn" onClick={() => setEditor({})}>
+              新建知识点
+            </button>
+            <button className="btn" onClick={() => setExportOpen(true)}>
+              批量导出
+            </button>
             <label className="global-search">
               <Search size={16} />
               <input
@@ -696,6 +735,7 @@ export default function App() {
               <>
                 {view === "home" && (
                   <>
+                    <PromptCard onPaste={() => setEditor({ paste: true })} />
                     <div className="page-intro">
                       <div>
                         <div className="eyebrow">
@@ -757,7 +797,7 @@ export default function App() {
                       ))}
                     </div>
                     <Heatmap
-                      days={stats.days}
+                      days={stats.learningDays}
                       today={stats.today}
                       onDay={setSelectedDay}
                     />
@@ -765,11 +805,11 @@ export default function App() {
                       <section className="day-panel">
                         <div className="section-line">
                           <h3>
-                            {selectedDay} · 新增 {dayItems.length} 个知识点
+                            {selectedDay} · 学习 {dayItems.length} 个知识点
                           </h3>
                           <button
                             className="icon-btn"
-                            aria-label="关闭当日新增"
+                            aria-label="关闭当日学习记录"
                             onClick={() => setSelectedDay("")}
                           >
                             <X size={16} />
@@ -793,7 +833,7 @@ export default function App() {
                             </button>
                           ))
                         ) : (
-                          <p className="muted">这一天还没有新增记录。</p>
+                          <p className="muted">这一天没有记录学习内容。</p>
                         )}
                       </section>
                     )}
@@ -908,37 +948,38 @@ export default function App() {
                       </span>
                     </div>
                     <div className="filter-row">
-                      <select
-                        aria-label="筛选分类"
+                      <FilterPicker
+                        label="筛选分类"
+                        categories={categories}
                         value={category.length ? JSON.stringify(category) : ""}
-                        onChange={(e) =>
-                          setCategory(
-                            e.target.value ? JSON.parse(e.target.value) : [],
-                          )
-                        }
-                      >
-                        <option value="">全部目录</option>
-                        {categories.map((c) => (
-                          <option
-                            key={JSON.stringify(c)}
-                            value={JSON.stringify(c)}
-                          >
-                            {c.join(" / ")}
-                          </option>
-                        ))}
-                      </select>
-                      <select
-                        aria-label="筛选标签"
+                        onChange={(v) => setCategory(v ? JSON.parse(v) : [])}
+                      />
+                      <FilterPicker
+                        label="筛选关键词"
                         value={tag}
-                        onChange={(e) => setTag(e.target.value)}
-                      >
-                        <option value="">全部关键词</option>
-                        {[...new Set(all.flatMap((n) => n.tags))]
-                          .sort()
-                          .map((t) => (
-                            <option key={t}>{t}</option>
-                          ))}
-                      </select>
+                        onChange={setTag}
+                        tags={Array.from(
+                          new Set(
+                            all
+                              .filter((n) =>
+                                category.every((c, i) => n.category[i] === c),
+                              )
+                              .flatMap((n) => n.tags),
+                          ),
+                        )
+                          .map((name) => ({
+                            name,
+                            count: all.filter(
+                              (n) =>
+                                category.every((c, i) => n.category[i] === c) &&
+                                n.tags.includes(name),
+                            ).length,
+                          }))
+                          .sort(
+                            (a, b) =>
+                              b.count - a.count || a.name.localeCompare(b.name),
+                          )}
+                      />
                       {(q || category.length > 0 || tag) && (
                         <button
                           className="text-btn"
@@ -953,6 +994,28 @@ export default function App() {
                         </button>
                       )}
                     </div>
+                    {(category.length > 0 || tag) && (
+                      <div className="active-filters">
+                        {category.length > 0 && (
+                          <button
+                            onClick={() => setCategory([])}
+                            title="移除分类筛选"
+                          >
+                            {category.join(" / ")}
+                            <X size={12} />
+                          </button>
+                        )}
+                        {tag && (
+                          <button
+                            onClick={() => setTag("")}
+                            title="移除关键词筛选"
+                          >
+                            #{tag}
+                            <X size={12} />
+                          </button>
+                        )}
+                      </div>
+                    )}
                     {notes.length ? (
                       renderList(notes)
                     ) : (
@@ -967,13 +1030,31 @@ export default function App() {
                 {view === "detail" &&
                   (detail ? (
                     <article className="article">
-                      <button
-                        className="text-btn back"
-                        onClick={() => navigate("library")}
-                      >
-                        <ArrowLeft size={14} />
-                        返回知识库
-                      </button>
+                      <div className="article-toolbar">
+                        <button
+                          className="text-btn back"
+                          onClick={() => navigate("library")}
+                        >
+                          <ArrowLeft size={14} />
+                          返回知识库
+                        </button>
+                        <button
+                          className="btn"
+                          onClick={() => setEditor({ id: detail.id })}
+                        >
+                          编辑知识点
+                        </button>
+                        <button
+                          className="btn delete-note"
+                          onClick={() => {
+                            setTrashError("");
+                            setDeleteTarget(detail);
+                          }}
+                        >
+                          <Trash2 size={14} />
+                          删除知识点
+                        </button>
+                      </div>
                       <div className="eyebrow">
                         {detail.category.join(" / ")}
                       </div>
@@ -1179,25 +1260,12 @@ export default function App() {
                         value={toDate}
                         onChange={(e) => setToDate(e.target.value)}
                       />
-                      <select
-                        aria-label="时间线分类"
+                      <FilterPicker
+                        label="时间线分类"
+                        categories={categories}
                         value={category.length ? JSON.stringify(category) : ""}
-                        onChange={(e) =>
-                          setCategory(
-                            e.target.value ? JSON.parse(e.target.value) : [],
-                          )
-                        }
-                      >
-                        <option value="">全部目录</option>
-                        {categories.map((c) => (
-                          <option
-                            key={JSON.stringify(c)}
-                            value={JSON.stringify(c)}
-                          >
-                            {c.join(" / ")}
-                          </option>
-                        ))}
-                      </select>
+                        onChange={(v) => setCategory(v ? JSON.parse(v) : [])}
+                      />
                     </div>
                     <div className="timeline">
                       {timeline
@@ -1272,6 +1340,132 @@ export default function App() {
           )}
         </div>
       </div>
+      {deleteTarget && (
+        <div
+          className="modal-backdrop"
+          onClick={() => !deleteBusy && setDeleteTarget(null)}
+        >
+          <section
+            className="modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="delete-title"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="section-line">
+              <h2 id="delete-title">删除知识点</h2>
+              <button
+                className="icon-btn"
+                aria-label="取消删除"
+                disabled={deleteBusy}
+                onClick={() => setDeleteTarget(null)}
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <p>
+              将“{deleteTarget.title}
+              ”移入回收站？正文和复习记录会保留，可以随时恢复。其他知识点对它的引用会显示为待修复。
+            </p>
+            {trashError && (
+              <div className="error" role="alert">
+                {trashError}
+              </div>
+            )}
+            <div className="modal-bottom">
+              <button
+                className="btn"
+                disabled={deleteBusy}
+                onClick={() => setDeleteTarget(null)}
+              >
+                取消
+              </button>
+              <button
+                className="btn primary"
+                disabled={deleteBusy}
+                onClick={deleteNote}
+              >
+                {deleteBusy ? "正在删除…" : "移入回收站"}
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
+      {trashOpen && (
+        <div
+          className="modal-backdrop"
+          onClick={() => !deleteBusy && setTrashOpen(false)}
+        >
+          <section
+            className="modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="trash-title"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="section-line">
+              <h2 id="trash-title">回收站</h2>
+              <button
+                className="icon-btn"
+                disabled={deleteBusy}
+                aria-label="关闭回收站"
+                onClick={() => setTrashOpen(false)}
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <p>恢复后保留原来的知识点 ID 与复习进度。</p>
+            {trashError && (
+              <div className="error" role="alert">
+                {trashError}
+              </div>
+            )}
+            {trash.length ? (
+              trash.map((item) => (
+                <div className="trash-item" key={item.token}>
+                  <div>
+                    <h3>{item.title}</h3>
+                    <small>
+                      删除于 {new Date(item.deleted_at).toLocaleString()}
+                    </small>
+                  </div>
+                  <button
+                    className="btn"
+                    disabled={deleteBusy}
+                    onClick={() => restoreNote(item.token)}
+                  >
+                    <RotateCcw size={14} />
+                    恢复
+                  </button>
+                </div>
+              ))
+            ) : (
+              <div className="empty">回收站是空的。</div>
+            )}
+          </section>
+        </div>
+      )}
+      {editor && (
+        <Suspense
+          fallback={<div className="modal-backdrop">正在打开编辑器…</div>}
+        >
+          <NoteEditor
+            id={editor.id}
+            startPaste={editor.paste}
+            onImported={refresh}
+            category={category}
+            onClose={() => setEditor(null)}
+            onSaved={async (id) => {
+              await refresh();
+              setEditor(null);
+              read(id);
+            }}
+          />
+        </Suspense>
+      )}
+      {exportOpen && (
+        <ExportDialog notes={all} onClose={() => setExportOpen(false)} />
+      )}
       {importOpen && (
         <div
           className="modal-backdrop"
@@ -1295,7 +1489,9 @@ export default function App() {
                 <X size={19} />
               </button>
             </div>
-            <p>把整理好的 Markdown，放进你的知识空间。</p>
+            <p>
+              支持 Markdown 文件和本系统导出的 ZIP 迁移包，可同时选择多个文件。
+            </p>
             <button
               className="drop-zone"
               disabled={importing}
@@ -1309,14 +1505,14 @@ export default function App() {
               <span className="upload-icon">
                 <Upload size={26} />
               </span>
-              <h3>{importing ? "正在导入…" : "拖拽 Markdown 文件到这里"}</h3>
-              <p>或点击选择文件 · 每篇最多 2 MB</p>
+              <h3>{importing ? "正在导入…" : "拖拽 Markdown 或 ZIP 到这里"}</h3>
+              <p>或点击选择文件 · Markdown 2 MB / ZIP 100 MB</p>
             </button>
             <input
               ref={fileRef}
               type="file"
               multiple
-              accept=".md"
+              accept=".md,.zip"
               hidden
               onChange={(e) => e.target.files && upload(e.target.files)}
             />
@@ -1351,7 +1547,9 @@ export default function App() {
               </div>
             )}
             <div className="modal-bottom">
-              <span>同 ID 更新 · 相同内容自动跳过</span>
+              <span>
+                Markdown 同 ID 更新；迁移包遇到内容冲突不覆盖，相同内容跳过
+              </span>
               <button
                 className="btn"
                 disabled={importing}

@@ -48,6 +48,18 @@ test("HTTP import, watcher, private paths, malformed input and restart persisten
     });
   };
   await start();
+  for (const method of ["GET", "POST", "PUT", "DELETE"]) {
+    const missing = await fetch(base + "/api/nonexistent", { method });
+    assert.equal(missing.status, 404);
+    assert.match((await missing.json()).error, /接口不存在/);
+  }
+  const invalidOperation = await fetch(base + "/api/organize", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: "{}",
+  });
+  assert.equal(invalidOperation.status, 400);
+  assert.match((await invalidOperation.json()).error, /无效/);
   const n = {
     schema_version: 1,
     id: "http-note",
@@ -78,6 +90,27 @@ test("HTTP import, watcher, private paths, malformed input and restart persisten
   const results = await response.json();
   assert.equal(results[0].status, "created");
   assert.equal(results[1].status, "error");
+  const organizedNote = await fetch(base + "/api/notes/http-note").then((r) =>
+    r.json(),
+  );
+  const deletion = await fetch(base + "/api/organize", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      source: { category: ["测试"] },
+      action: "delete",
+      expected: [{ id: n.id, hash: organizedNote.hash }],
+    }),
+  });
+  assert.equal(deletion.status, 200);
+  assert.equal((await deletion.json()).count, 1);
+  const archived = await fetch(base + "/api/trash").then((r) => r.json());
+  assert.equal(archived.length, 1);
+  const restored = await fetch(
+    base + "/api/trash/" + archived[0].token + "/restore",
+    { method: "POST" },
+  );
+  assert.equal(restored.status, 200);
   n.summary = "修改后简介";
   fs.writeFileSync(path.join(root, "http-note.md"), serializeNote(n));
   await wait(async () => {
@@ -116,6 +149,71 @@ test("HTTP import, watcher, private paths, malformed input and restart persisten
       )
     )?.includes("sqlite"),
   );
+  const source = await fetch(base + "/api/notes/http-note/source").then((r) =>
+    r.json(),
+  );
+  n.body = "网页编辑后的正文";
+  const editResponse = await fetch(base + "/api/notes/http-note", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      text: serializeNote(n),
+      expected_hash: source.hash,
+    }),
+  });
+  assert.equal(editResponse.status, 200);
+  const stale = await fetch(base + "/api/notes/http-note", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text: source.text, expected_hash: source.hash }),
+  });
+  assert.equal(stale.status, 400);
+  const bundle = await fetch(
+    base + "/api/export?from=2000-01-01&to=2099-12-31&basis=created",
+  );
+  assert.equal(bundle.headers.get("content-type"), "application/zip");
+  const importedBundle = await fetch(base + "/api/import-bundle", {
+    method: "POST",
+    headers: { "Content-Type": "application/zip" },
+    body: await bundle.arrayBuffer(),
+  });
+  assert.equal((await importedBundle.json())[0].status, "skipped");
+  const created = await fetch(base + "/api/notes", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text: serializeNote({ ...n, id: "manual" }) }),
+  });
+  assert.equal(created.status, 200);
+  const manual = await fetch(base + "/api/notes/manual").then((r) => r.json());
+  await fetch(base + "/api/notes/manual", {
+    method: "DELETE",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ expected_hash: manual.hash }),
+  });
+  const beforeDelete = await fetch(base + "/api/notes/http-note").then((r) =>
+    r.json(),
+  );
+  const removed = await fetch(base + "/api/notes/http-note", {
+    method: "DELETE",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ expected_hash: beforeDelete.hash }),
+  });
+  assert.equal(removed.status, 200);
+  const { token } = await removed.json();
+  assert.equal((await fetch(base + "/api/notes/http-note")).status, 404);
+  assert.equal(
+    (await fetch(base + "/api/trash").then((r) => r.json())).length,
+    2,
+  );
+  assert.equal(
+    (await fetch(base + "/api/trash/" + token + "/restore", { method: "POST" }))
+      .status,
+    200,
+  );
+  assert.equal(
+    (await fetch(base + "/api/trash").then((r) => r.json())).length,
+    1,
+  );
   await stop();
   await start();
   const restored = await fetch(base + "/api/notes/http-note").then((r) =>
@@ -130,6 +228,6 @@ test("HTTP import, watcher, private paths, malformed input and restart persisten
   });
   assert.equal(
     (await fetch(base + "/api/stats").then((r) => r.json())).days[0].count,
-    1,
+    2,
   );
 });
