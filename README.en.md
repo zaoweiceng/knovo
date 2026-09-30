@@ -56,7 +56,7 @@ pnpm run build
 pnpm start
 ```
 
-Open **http://127.0.0.1:3210**. New installations start with an empty library. To add seven sample notes, run `pnpm run demo`, then refresh the page. Later starts only require `pnpm start`.
+Open [http://127.0.0.1:3210](http://127.0.0.1:3210). New installations start with an empty library. To add seven sample notes, run `pnpm run demo`, then refresh the page. Later starts only require `pnpm start`.
 
 Node.js may print an experimental warning for its built-in `node:sqlite` module. No separate database server is needed.
 

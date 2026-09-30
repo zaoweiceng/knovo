@@ -56,7 +56,7 @@ pnpm run build
 pnpm start
 ```
 
-打开 **http://127.0.0.1:3210**。首次安装为空库；可运行 `pnpm run demo` 生成 7 篇示例，再刷新页面。后续启动只需 `pnpm start`。
+打开 [http://127.0.0.1:3210](http://127.0.0.1:3210)。首次安装为空库；可运行 `pnpm run demo` 生成 7 篇示例，再刷新页面。后续启动只需 `pnpm start`。
 
 SQLite 使用 Node.js 内置的 `node:sqlite`，无需另装数据库；Node.js 可能输出实验性 API 提示。
 
