@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { Store } from "../server/store.mjs";
+import { Store } from "../server/file-store.mjs";
 import {
   serializeNote,
   parseNote,
@@ -25,8 +25,8 @@ function note(id, extra = {}) {
     created_at: "2026-01-01T00:00:00.000Z",
     updated_at: "2026-01-01T00:00:00.000Z",
     learning_events: [{ date: "2026-01-01", summary: "理解了原理" }],
-    prerequisites: [],
-    related: [],
+    knowledge_keywords: [id],
+    dependency_keywords: [],
     aliases: [],
     merged_from: [],
     body: "正文包含上下文窗口和 SQLite 数据库。",
@@ -142,10 +142,10 @@ test("first reviews are distributed, midnight and stage rules persist", (t) => {
 });
 test("graph: two hops, directed prerequisite, cycles, limits, missing references", (t) => {
   const { write, store } = fixture(t);
-  write("a", { related: ["b"] });
-  write("b", { prerequisites: ["c"] });
-  write("c", { related: ["d", "a"] });
-  write("d", { related: ["missing"] });
+  write("a", { knowledge_keywords: ["ab", "ac"] });
+  write("b", { knowledge_keywords: ["ab"], dependency_keywords: ["C"] });
+  write("c", { knowledge_keywords: ["C", "ac", "cd"] });
+  write("d", { knowledge_keywords: ["cd"], dependency_keywords: ["missing"] });
   store.sync();
   const g = store.graph("a", { depth: 2, limit: 2 });
   assert.equal(g.nodes.length, 2);
@@ -157,7 +157,7 @@ test("graph: two hops, directed prerequisite, cycles, limits, missing references
     ),
   );
   assert.equal(full.nodes.length, 4);
-  assert.ok(store.errors.some((e) => e.message.includes("missing")));
+  assert.equal(store.errors.length, 0);
   assert.equal(store.detail("b").relations.related[0].id, "a");
   assert.equal(
     store.graph("a", { category: JSON.stringify(["其他"]) }).nodes.length,
@@ -371,7 +371,7 @@ test("subsequent merges flatten identities and can be restored independently", (
 test("trash deletion and restore preserve review history and first-import count", (t) => {
   const { write, root, store } = fixture(t);
   write("trash-target");
-  write("dependent", { prerequisites: ["trash-target"] });
+  write("dependent", { dependency_keywords: ["trash-target"] });
   store.sync();
   store.review("trash-target", "good");
   const before = store.detail("trash-target");
@@ -379,7 +379,7 @@ test("trash deletion and restore preserve review history and first-import count"
   assert.equal(store.detail("trash-target"), null);
   assert.equal(fs.existsSync(path.join(root, "trash-target.md")), false);
   assert.equal(store.trash().length, 1);
-  assert.ok(store.errors.some((e) => e.message.includes("trash-target")));
+  assert.equal(store.detail("dependent").relations.prerequisites.length, 0);
   assert.equal(store.stats().days[0].count, 2);
   store.restoreNote(archived.token);
   assert.equal(store.trash().length, 0);
@@ -526,13 +526,16 @@ test("date range bundles round-trip across stores, retain relationships and repo
   const a = fixture(t),
     b = fixture(t);
   a.write("a", {
-    related: ["b"],
+    knowledge_keywords: ["ab"],
     learning_events: [
       { date: "2025-12-31", summary: "first" },
       { date: "2026-01-01", summary: "again" },
     ],
   });
-  a.write("b", { learning_events: [{ date: "2026-01-02", summary: "last" }] });
+  a.write("b", {
+    knowledge_keywords: ["ab"],
+    learning_events: [{ date: "2026-01-02", summary: "last" }],
+  });
   a.write("c", { learning_events: [{ date: null, summary: "unknown" }] });
   a.store.sync();
   const files = readBundle(
@@ -598,8 +601,9 @@ test("editor form separates body and preserves untouched metadata when saving", 
   const { newDocument, splitDocument, joinDocument } =
     await import("../src/editorDocument.ts");
   const original = note("form", {
-    related: ["other"],
-    prerequisites: ["base"],
+    knowledge_keywords: ["concept"],
+    dependency_keywords: ["基础概念"],
+    knowledge_keywords: ["进阶概念"],
     aliases: ["旧标题"],
     merged_from: ["previous"],
     extra_field: { source: "original" },
@@ -618,8 +622,8 @@ test("editor form separates body and preserves untouched metadata when saving", 
   for (const key of [
     "id",
     "created_at",
-    "related",
-    "prerequisites",
+    "knowledge_keywords",
+    "dependency_keywords",
     "aliases",
     "merged_from",
     "learning_events",
@@ -646,6 +650,8 @@ test("AI text import supports multiple notes, references, fences and repeat past
     notes: [
       {
         key: "base",
+        knowledge_keywords: ["基础概念"],
+        dependency_keywords: [],
         title: "基础概念",
         summary: "理解基础",
         category: ["测试", "基础"],
@@ -659,7 +665,8 @@ test("AI text import supports multiple notes, references, fences and repeat past
         summary: "如何应用",
         category: ["测试", "应用"],
         learning_events: [{ date: "2025-01-02", summary: "实践" }],
-        prerequisites: ["base"],
+        dependency_keywords: ["基础概念"],
+        knowledge_keywords: ["进阶概念"],
         body: "具体方法与推导",
       },
     ],
@@ -691,12 +698,9 @@ test("AI text import supports multiple notes, references, fences and repeat past
   assert.equal(store.detail(results[0].id).body, "本地修订");
   const invalid = structuredClone(payload);
   invalid.notes[1].prerequisites = ["missing"];
-  assert.throws(
-    () => parseKnowledgeText(JSON.stringify(invalid)),
-    /不存在的 key/,
-  );
+  assert.throws(() => parseKnowledgeText(JSON.stringify(invalid)), /已移除/);
   invalid.notes[1].prerequisites = ["advanced"];
-  assert.throws(() => parseKnowledgeText(JSON.stringify(invalid)), /自身/);
+  assert.throws(() => parseKnowledgeText(JSON.stringify(invalid)), /已移除/);
   assert.throws(() => parseKnowledgeText("{broken"), /无法识别/);
   assert.equal(
     parseKnowledgeText(
@@ -914,8 +918,8 @@ test("unrestricted deployment accepts any address while browser requests remain 
 
 test("organize updates descendants, category search and relations while preserving learning", (t) => {
   const { store, write } = fixture(t);
-  write("a", { category: ["旧分类", "子目录"] });
-  write("b", { category: ["旧分类"], related: ["a"] });
+  write("a", { category: ["旧分类", "子目录"], knowledge_keywords: ["ab"] });
+  write("b", { category: ["旧分类"], knowledge_keywords: ["ab"] });
   write("c", { category: ["目标"] });
   store.sync();
   store.review("a", "good");
@@ -1017,4 +1021,129 @@ test("directory deletion archives all descendants and restores original categori
   for (const item of store.trash()) store.restoreNote(item.token);
   assert.deepEqual(store.detail("a").category, before.category);
   assert.deepEqual(store.detail("a").history, before.history);
+});
+
+test("keyword relationships update across imports, edits, trash and restore without changing explicit metadata", (t) => {
+  const { store, write, root } = fixture(t);
+  write("consumer", { dependency_keywords: ["ＳＱＬ", "数据库事务"] });
+  write("legacy", { tags: ["SQL"] });
+  store.sync();
+  assert.equal(store.detail("consumer").relations.prerequisites.length, 0);
+  write("provider", { knowledge_keywords: ["sql", "数据库事务"] });
+  write("peer", { knowledge_keywords: ["SQL"] });
+  store.sync();
+  const rel = store.detail("consumer").relations.prerequisites;
+  assert.equal(rel.length, 2);
+  assert.equal(rel.find((r) => r.id === "provider").origin, "keyword");
+  assert.deepEqual(rel.find((r) => r.id === "provider").matched_keywords, [
+    "ＳＱＬ",
+    "数据库事务",
+  ]);
+  assert.equal(store.detail("provider").relations.dependents[0].id, "consumer");
+  assert.equal(store.detail("provider").relations.related[0].id, "peer");
+  assert.equal(store.detail("consumer").relations.related.length, 0);
+  assert.equal(
+    store.graph("consumer").edges.filter((e) => e.type === "prerequisite")
+      .length,
+    2,
+  );
+  assert.equal(store.list({ q: "数据库事务" }).length, 2);
+  assert.deepEqual(
+    parseNote(fs.readFileSync(path.join(root, "consumer.md"), "utf8"))
+      .dependency_keywords,
+    ["ＳＱＬ", "数据库事务"],
+  );
+  const snapshot = store.detail("provider");
+  const deleted = store.deleteNote("provider", snapshot.hash);
+  assert.equal(store.detail("consumer").relations.prerequisites.length, 1);
+  store.restoreNote(deleted.token);
+  assert.equal(store.detail("consumer").relations.prerequisites.length, 2);
+  write("provider", { knowledge_keywords: ["不同概念"] });
+  store.sync();
+  assert.equal(store.detail("consumer").relations.prerequisites.length, 1);
+  write("consumer", { dependency_keywords: [] });
+  store.sync();
+  assert.equal(store.detail("consumer").relations.prerequisites.length, 0);
+  assert.equal(store.detail("consumer").relations.related.length, 0);
+});
+
+test("keyword matching rejects substring guesses, self links and cycles", async () => {
+  const { deriveRelations } = await import("../shared/relations.mjs");
+  const rows = [
+    note("a", { knowledge_keywords: ["A"], dependency_keywords: ["B"] }),
+    note("b", { knowledge_keywords: ["B"], dependency_keywords: ["A"] }),
+    note("c", { knowledge_keywords: ["C"], dependency_keywords: ["C", "AA"] }),
+  ];
+  for (const r of deriveRelations(rows).values())
+    assert.equal(r.prerequisites.size, 0);
+  assert.throws(
+    () => parseNote(serializeNote({ ...rows[0], prerequisites: ["b"] })),
+    /已移除/,
+  );
+  const missing = note("missing");
+  delete missing.knowledge_keywords;
+  assert.throws(() => parseNote(serializeNote(missing)), /knowledge_keywords/);
+});
+
+test("keyword schema requires arrays and preserves identity on keyword edits", async (t) => {
+  const { parseKnowledgeText, importKnowledgeText } =
+    await import("../shared/text-import.mjs");
+  const { store } = fixture(t);
+  const data = {
+    format: "zhixu-knowledge-v1",
+    notes: [
+      {
+        key: "x",
+        knowledge_keywords: [],
+        dependency_keywords: [],
+        title: "旧知识",
+        summary: "旧简介",
+        category: ["旧目录"],
+        tags: ["SQL"],
+        learning_events: [],
+        body: "原有正文",
+      },
+    ],
+  };
+  const legacy = parseKnowledgeText(JSON.stringify(data))[0].note;
+  assert.deepEqual(legacy.knowledge_keywords, []);
+  assert.equal(
+    importKnowledgeText(store, JSON.stringify(data))[0].status,
+    "created",
+  );
+  assert.equal(
+    importKnowledgeText(store, JSON.stringify(data))[0].status,
+    "skipped",
+  );
+  data.notes[0].knowledge_keywords = ["SQL"];
+  data.notes[0].dependency_keywords = ["关系代数"];
+  const updated = parseKnowledgeText(JSON.stringify(data))[0].note;
+  assert.deepEqual(updated.knowledge_keywords, ["SQL"]);
+  assert.deepEqual(updated.dependency_keywords, ["关系代数"]);
+  assert.equal(updated.id, legacy.id);
+  assert.deepEqual(parseNote(serializeNote(updated)), updated);
+  // Adding keywords to re-imported legacy content must not create a duplicate.
+  assert.equal(
+    importKnowledgeText(store, JSON.stringify(data))[0].status,
+    "error",
+  );
+  assert.equal(store.active().length, 1);
+  const second = fixture(t).store;
+  assert.equal(
+    importKnowledgeText(second, JSON.stringify(data))[0].status,
+    "created",
+  );
+  assert.equal(
+    importKnowledgeText(second, JSON.stringify(data))[0].status,
+    "skipped",
+  );
+  data.notes[0].dependency_keywords = "bad";
+  assert.throws(
+    () => parseKnowledgeText(JSON.stringify(data)),
+    /dependency_keywords/,
+  );
+  assert.throws(
+    () => parseNote(serializeNote(note("bad", { knowledge_keywords: [""] }))),
+    /knowledge_keywords/,
+  );
 });

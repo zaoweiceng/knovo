@@ -40,14 +40,7 @@ export function parseNote(text) {
   for (const k of ["title", "summary"])
     if (typeof meta[k] !== "string" || !meta[k].trim())
       throw Error(`缺少有效的 ${k}`);
-  for (const k of [
-    "category",
-    "tags",
-    "prerequisites",
-    "related",
-    "aliases",
-    "merged_from",
-  ]) {
+  for (const k of ["category", "tags", "aliases", "merged_from"]) {
     if (meta[k] === undefined && k !== "category") meta[k] = [];
     if (
       !Array.isArray(meta[k]) ||
@@ -56,8 +49,22 @@ export function parseNote(text) {
       throw Error(`${k} 必须为非空字符串数组`);
     meta[k] = [...new Set(meta[k].map((x) => x.trim()))];
   }
+  for (const k of ["knowledge_keywords", "dependency_keywords"]) {
+    if (
+      !Array.isArray(meta[k]) ||
+      meta[k].length > 30 ||
+      meta[k].some((x) => typeof x !== "string" || !x.trim() || x.length > 120)
+    )
+      throw Error(`${k} 必须为最多 30 个非空字符串的数组，每项最多 120 字符`);
+    meta[k] = [...new Set(meta[k].map((x) => x.trim()))];
+  }
   if (!meta.category.length) throw Error("category 至少包含一级分类");
-  for (const k of ["prerequisites", "related", "merged_from"])
+  for (const k of ["prerequisites", "related"])
+    if (Object.hasOwn(meta, k))
+      throw Error(
+        `${k} 已移除，请使用 knowledge_keywords 与 dependency_keywords`,
+      );
+  for (const k of ["merged_from"])
     if (meta[k].includes(meta.id)) throw Error(`${k} 不得引用自身`);
   for (const k of ["created_at", "updated_at"])
     if (

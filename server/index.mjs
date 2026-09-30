@@ -1,3 +1,4 @@
+import { topology } from "../shared/topology.mjs";
 import { accessConfig } from "./access.mjs";
 import { putImage } from "./assets.mjs";
 import {
@@ -6,7 +7,6 @@ import {
 } from "../shared/text-import.mjs";
 import express from "express";
 import { exportBundle, readBundle } from "./transfer.mjs";
-import chokidar from "chokidar";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -125,6 +125,16 @@ app.get("/api/trash", (_req, res) => res.json(store.trash()));
 app.post("/api/trash/:token/restore", (req, res) =>
   res.json(store.restoreNote(req.params.token)),
 );
+app.get("/api/topology", (req, res) =>
+  res.json(
+    topology(
+      store.active(),
+      JSON.parse(req.query.category || "[]"),
+      JSON.parse(req.query.expanded || "[]"),
+      req.query.type || "all",
+    ),
+  ),
+);
 app.get("/api/graph/:id", (req, res) => {
   const n = store.graph(req.params.id, {
     ...req.query,
@@ -187,28 +197,14 @@ app.use((err, req, res, next) =>
     .status(err.code === "LOCKED" ? 409 : 400)
     .json({ error: err.message || "请求失败" }),
 );
-let timer;
-const schedule = () => {
-  clearTimeout(timer);
-  timer = setTimeout(() => {
-    try {
-      if (store.sync().busy) schedule();
-    } catch (e) {
-      console.error("同步失败", e.message);
-    }
-  }, 350);
-};
-const watcher = chokidar
-  .watch(root, {
-    ignored: (p) =>
-      path
-        .relative(root, p)
-        .split(path.sep)
-        .some((s) => s.startsWith(".")),
-    ignoreInitial: true,
-    awaitWriteFinish: { stabilityThreshold: 400, pollInterval: 100 },
-  })
-  .on("all", schedule);
+// Detect changes committed by another local process (e.g. maintenance CLI).
+const timer = setInterval(() => {
+  try {
+    store.sync();
+  } catch (error) {
+    console.error("同步失败", error.message);
+  }
+}, 2000);
 const server = app.listen(access.port, access.host, () =>
   console.log(
     `知序已启动：http://${access.host}:${access.port}\n知识目录：${root}`,
@@ -216,8 +212,7 @@ const server = app.listen(access.port, access.host, () =>
 );
 for (const signal of ["SIGINT", "SIGTERM"])
   process.on(signal, () => {
-    clearTimeout(timer);
-    watcher.close();
+    clearInterval(timer);
     server.close(() => {
       store.close();
       process.exit(0);

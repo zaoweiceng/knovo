@@ -6,6 +6,8 @@ export type EditorMeta = {
   summary: string;
   category: string[];
   tags: string[];
+  knowledge_keywords: string[];
+  dependency_keywords: string[];
   status: string;
   learning_events: { date: string | null; summary: string }[];
 };
@@ -28,12 +30,12 @@ export function newDocument(category: string[]) {
     summary: "",
     category: category.length ? category : ["未分类"],
     tags: [],
+    knowledge_keywords: [],
+    dependency_keywords: [],
     learning_events: [{ date: localDay(new Date()), summary: "首次学习" }],
     status: "learning",
     created_at: now,
     updated_at: now,
-    prerequisites: [],
-    related: [],
     aliases: [],
     merged_from: [],
   };

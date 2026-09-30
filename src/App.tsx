@@ -1,5 +1,6 @@
 import KnowledgeTree from "./KnowledgeTree";
 import {
+  Fragment,
   useEffect,
   useRef,
   useState,
@@ -15,7 +16,6 @@ import {
   Network,
   RotateCcw,
   Search,
-  Plus,
   ChevronRight,
   ChevronDown,
   ArrowUpRight,
@@ -35,6 +35,7 @@ import {
   RefreshCw,
   Leaf,
   Trash2,
+  Pencil,
 } from "lucide-react";
 import {
   api,
@@ -90,6 +91,19 @@ function Markdown({ body }: { body: string }) {
   );
 }
 export default function App() {
+  const [relationsWidth, setRelationsWidth] = useState(() => {
+    try {
+      const n = Number(localStorage.getItem("knowledge-relations-width"));
+      return Number.isFinite(n) && n >= 220 && n <= 420 ? n : 245;
+    } catch {
+      return 245;
+    }
+  });
+  useEffect(() => {
+    try {
+      localStorage.setItem("knowledge-relations-width", String(relationsWidth));
+    } catch {}
+  }, [relationsWidth]);
   const [sidebarWidth, setSidebarWidth] = useState(() => {
     try {
       const n = Number(localStorage.getItem("knowledge-sidebar-width"));
@@ -301,6 +315,12 @@ export default function App() {
     setRightOpen(false);
     setError("");
   };
+  const currentPath =
+    view === "detail"
+      ? detail?.category || []
+      : view === "library" || view === "graph"
+        ? category
+        : [];
   const navigate = (next: View) => {
     setView(next);
     setLeftOpen(false);
@@ -445,7 +465,7 @@ export default function App() {
         [
           ["prerequisites", "前置知识"],
           ["related", "相关知识"],
-          ["dependents", "被这些知识引用"],
+          ["dependents", "以此为前置的知识"],
         ] as const
       ).map(([key, label]) => (
         <section className="relation-section" key={key}>
@@ -475,6 +495,11 @@ export default function App() {
                       ? "目标不存在 · 待修复"
                       : r.category?.slice(-2).join(" / ")}
                   </small>
+                  {r.origin === "keyword" && (
+                    <small title={r.matched_keywords?.join("、")}>
+                      自动匹配 · {r.matched_keywords?.join("、")}
+                    </small>
+                  )}
                 </div>
                 {!r.missing && <ChevronRight size={13} />}
               </button>
@@ -489,7 +514,12 @@ export default function App() {
   return (
     <div
       className="app-shell"
-      style={{ "--sidebar-width": `${sidebarWidth}px` } as CSSProperties}
+      style={
+        {
+          "--sidebar-width": `${sidebarWidth}px`,
+          "--relations-width": `${relationsWidth}px`,
+        } as CSSProperties
+      }
     >
       {(leftOpen || rightOpen) && (
         <div
@@ -547,7 +577,6 @@ export default function App() {
             className={view === "graph" ? "active" : ""}
             disabled={!all.length}
             onClick={() => {
-              if (!selected) setSelected(all[0]?.id);
               navigate("graph");
             }}
           >
@@ -576,7 +605,7 @@ export default function App() {
             active={selected || undefined}
             onSelect={(p) => {
               setCategory(p);
-              setView("library");
+              if (view !== "graph") setView("library");
               setLeftOpen(false);
             }}
             onNote={read}
@@ -632,8 +661,8 @@ export default function App() {
           <span className="local-dot" />
           本地存储 · 属于你的知识
           <button
-            title="重新扫描文件夹"
-            aria-label="重新扫描"
+            title="刷新知识库"
+            aria-label="刷新知识库"
             onClick={() =>
               api("/rescan", { method: "POST" })
                 .then(refresh)
@@ -653,29 +682,54 @@ export default function App() {
           >
             <PanelLeft size={18} />
           </button>
-          <div className="breadcrumb">
-            我的空间
-            <ChevronRight size={13} />
-            <span>
-              {
+          <nav className="breadcrumb" aria-label="当前目录路径">
+            {view !== "detail" && currentPath.length > 0 && (
+              <>
+                <span>{view === "graph" ? "知识网络" : "知识库"}</span>
+                <ChevronRight size={13} aria-hidden="true" />
+              </>
+            )}
+            {currentPath.length ? (
+              currentPath.map((name, index) => (
+                <Fragment key={JSON.stringify(currentPath.slice(0, index + 1))}>
+                  {index > 0 && <ChevronRight size={13} aria-hidden="true" />}
+                  <button
+                    type="button"
+                    title={currentPath.slice(0, index + 1).join(" / ")}
+                    aria-current={
+                      view === "library" && index === currentPath.length - 1
+                        ? "page"
+                        : undefined
+                    }
+                    onClick={() => {
+                      setCategory(currentPath.slice(0, index + 1));
+                      setQ("");
+                      setTag("");
+                      setDirQuery("");
+                      setRightOpen(false);
+                      navigate(view === "graph" ? "graph" : "library");
+                    }}
+                  >
+                    {name}
+                  </button>
+                </Fragment>
+              ))
+            ) : (
+              <span>
                 {
-                  home: "概览",
-                  library: "知识库",
-                  detail: "知识库",
-                  review: "今日复习",
-                  timeline: "学习时间线",
-                  graph: "知识网络",
-                }[view]
-              }
-            </span>
-          </div>
+                  {
+                    home: "概览",
+                    library: "全部知识",
+                    detail: "",
+                    review: "今日复习",
+                    timeline: "学习时间线",
+                    graph: "知识网络",
+                  }[view]
+                }
+              </span>
+            )}
+          </nav>
           <div className="header-actions">
-            <button className="btn" onClick={() => setEditor({})}>
-              新建知识点
-            </button>
-            <button className="btn" onClick={() => setExportOpen(true)}>
-              批量导出
-            </button>
             <label className="global-search">
               <Search size={16} />
               <input
@@ -690,16 +744,25 @@ export default function App() {
               />
               <kbd>⌘ K</kbd>
             </label>
-            <button
-              className="btn primary import-button"
-              onClick={() => {
-                setImportOpen(true);
-                setResults([]);
-              }}
-            >
-              <Plus size={16} />
-              <span>导入知识</span>
-            </button>
+            {view === "home" && (
+              <>
+                <button className="btn" onClick={() => setEditor({})}>
+                  新建知识
+                </button>
+                <button className="btn" onClick={() => setExportOpen(true)}>
+                  批量导出
+                </button>
+                <button
+                  className="btn"
+                  onClick={() => {
+                    setImportOpen(true);
+                    setResults([]);
+                  }}
+                >
+                  批量导入
+                </button>
+              </>
+            )}
             {view === "detail" && (
               <button
                 className="icon-btn relation-toggle"
@@ -736,19 +799,6 @@ export default function App() {
                 {view === "home" && (
                   <>
                     <PromptCard onPaste={() => setEditor({ paste: true })} />
-                    <div className="page-intro">
-                      <div>
-                        <div className="eyebrow">
-                          A LITTLE MORE UNDERSTANDING, EVERY DAY
-                        </div>
-                        <h1>让知识，慢慢连成一片。</h1>
-                        <p>记录每一次理解，在回顾中发现新的联系。</p>
-                      </div>
-                      <span className="date-pill">
-                        <CalendarDays size={14} />
-                        {stats.today.replaceAll("-", " / ")}
-                      </span>
-                    </div>
                     <div className="stat-grid">
                       {[
                         {
@@ -868,7 +918,7 @@ export default function App() {
                             <p>
                               将 skill 生成的 Markdown 拖入这里，
                               <br />
-                              或放进本地 content 文件夹。
+                              或使用批量导入粘贴 JSON。
                             </p>
                             <button
                               className="btn primary"
@@ -929,24 +979,6 @@ export default function App() {
                 )}
                 {view === "library" && (
                   <>
-                    <div className="section-line">
-                      <div>
-                        <div className="eyebrow">YOUR COLLECTION</div>
-                        <h1>
-                          {category.length
-                            ? category[category.length - 1]
-                            : "所有知识"}
-                        </h1>
-                        <p>
-                          {category.length
-                            ? category.join(" / ")
-                            : "把零散的理解，整理成自己的知识。"}
-                        </p>
-                      </div>
-                      <span className="count-pill">
-                        {notes.length} 个知识点
-                      </span>
-                    </div>
                     <div className="filter-row">
                       <FilterPicker
                         label="筛选分类"
@@ -1038,25 +1070,27 @@ export default function App() {
                           <ArrowLeft size={14} />
                           返回知识库
                         </button>
-                        <button
-                          className="btn"
-                          onClick={() => setEditor({ id: detail.id })}
-                        >
-                          编辑知识点
-                        </button>
-                        <button
-                          className="btn delete-note"
-                          onClick={() => {
-                            setTrashError("");
-                            setDeleteTarget(detail);
-                          }}
-                        >
-                          <Trash2 size={14} />
-                          删除知识点
-                        </button>
-                      </div>
-                      <div className="eyebrow">
-                        {detail.category.join(" / ")}
+                        <div className="article-actions">
+                          <button
+                            className="icon-btn"
+                            aria-label="编辑知识点"
+                            title="编辑知识点"
+                            onClick={() => setEditor({ id: detail.id })}
+                          >
+                            <Pencil size={18} />
+                          </button>
+                          <button
+                            className="icon-btn"
+                            aria-label="删除知识点"
+                            title="删除知识点"
+                            onClick={() => {
+                              setTrashError("");
+                              setDeleteTarget(detail);
+                            }}
+                          >
+                            <Trash2 size={18} />
+                          </button>
+                        </div>
                       </div>
                       <h1>{detail.title}</h1>
                       <p className="article-summary">{detail.summary}</p>
@@ -1142,15 +1176,8 @@ export default function App() {
                   ))}
                 {view === "review" && (
                   <>
-                    <div className="section-line">
-                      <div>
-                        <div className="eyebrow">MAKE IT YOURS</div>
-                        <h1>今日复习</h1>
-                        <p>先试着回忆，再打开答案。理解会在这里变得牢固。</p>
-                      </div>
-                      <span className="count-pill">
-                        剩余 {reviewQueue.length} 个
-                      </span>
+                    <div className="review-progress muted">
+                      剩余 {reviewQueue.length} 个
                     </div>
                     {current ? (
                       <section className="review-card" key={current.id}>
@@ -1241,11 +1268,6 @@ export default function App() {
                 )}
                 {view === "timeline" && (
                   <>
-                    <div className="eyebrow">TRACES OF LEARNING</div>
-                    <h1>学习时间线</h1>
-                    <p className="page-description">
-                      回到理解发生的那一天。这里记录学习日期，而非导入日期。
-                    </p>
                     <div className="filter-row">
                       <input
                         aria-label="开始日期"
@@ -1294,13 +1316,14 @@ export default function App() {
                     )}
                   </>
                 )}
-                {view === "graph" && selected && (
+                {view === "graph" && (
                   <Suspense
                     fallback={<div className="empty">正在打开知识网络…</div>}
                   >
                     <Graph
                       revision={stats.version}
-                      id={selected}
+                      category={category}
+                      onCategory={setCategory}
                       categories={categories}
                       onRead={read}
                     />
@@ -1310,32 +1333,40 @@ export default function App() {
             )}
             <footer className="page-footer">
               <span>知序 · 让每一点理解都有迹可循</span>
-              <span>Markdown 驱动 · 本地保存</span>
+              <span>SQLite 存储 · 本地保存</span>
             </footer>
           </main>
           {view === "detail" && (
             <aside
               className={`relations-sidebar ${rightOpen ? "mobile-open" : ""}`}
             >
-              <div className="section-line">
-                <h3>知识关联</h3>
-                <Network size={17} />
-              </div>
-              <p className="relation-subtitle">理解，从连接开始。</p>
-              {detail && renderRelations(detail.relations)}
-              <button
-                className="network-link"
-                onClick={() => {
-                  setView("graph");
-                  setRightOpen(false);
-                }}
-              >
-                <Network size={18} />
-                <div>
-                  查看知识网络<small>探索两跳内的知识联系</small>
+              <SidebarResizer
+                side="right"
+                width={relationsWidth}
+                onChange={setRelationsWidth}
+              />
+              <div className="relations-scroll">
+                <div className="section-line">
+                  <h3>知识关联</h3>
+                  <Network size={17} />
                 </div>
-                <ArrowUpRight size={15} />
-              </button>
+                <p className="relation-subtitle">理解，从连接开始。</p>
+                {detail && renderRelations(detail.relations)}
+                <button
+                  className="network-link"
+                  onClick={() => {
+                    setCategory(detail?.category || []);
+                    setView("graph");
+                    setRightOpen(false);
+                  }}
+                >
+                  <Network size={18} />
+                  <div>
+                    查看知识网络<small>探索当前目录的拓扑关系</small>
+                  </div>
+                  <ArrowUpRight size={15} />
+                </button>
+              </div>
             </aside>
           )}
         </div>
@@ -1519,7 +1550,7 @@ export default function App() {
             <div className="import-hint">
               <Folder size={16} />
               <span>
-                也可将文件放入本地 <code>content/</code> 目录，网站会自动加载。
+                导入后统一保存在本地 SQLite 中，无需管理独立 Markdown 文件。
               </span>
             </div>
             {results.length > 0 && (

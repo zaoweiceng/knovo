@@ -1,12 +1,6 @@
 import { imageType, referencedImages } from "./assets.mjs";
 import AdmZip from "adm-zip";
-import {
-  acquireLock,
-  readLibrary,
-  parseNote,
-  validDay,
-  hash,
-} from "../shared/protocol.mjs";
+import { acquireLock, parseNote, validDay, hash } from "../shared/protocol.mjs";
 
 export function exportBundle(store, { from, to, basis = "learning" }) {
   if (!validDay(from) || !validDay(to) || from > to)
@@ -15,7 +9,7 @@ export function exportBundle(store, { from, to, basis = "learning" }) {
     throw Error("日期类型无效");
   const release = acquireLock(store.stateDir);
   try {
-    const lib = readLibrary(store.root);
+    const lib = store.library();
     if (lib.errors.length) throw Error("知识目录存在无效文件，请先修复后导出");
     const ids = new Set();
     for (const item of lib.notes) {

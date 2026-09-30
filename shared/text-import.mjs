@@ -46,24 +46,20 @@ export function parseKnowledgeText(input) {
           summary: n.summary,
           category: n.category,
           tags: n.tags || [],
+          knowledge_keywords: n.knowledge_keywords,
+          dependency_keywords: n.dependency_keywords,
           learning_events: n.learning_events,
           status: n.status || "learning",
           created_at: "2000-01-01T00:00:00.000Z",
           updated_at: "2000-01-01T00:00:00.000Z",
-          prerequisites: [],
-          related: [],
           aliases: [],
           merged_from: [],
           body: typeof n.body === "string" ? n.body : "",
         }),
       );
       for (const field of ["prerequisites", "related"])
-        if (
-          n[field] !== undefined &&
-          (!Array.isArray(n[field]) ||
-            n[field].some((x) => typeof x !== "string"))
-        )
-          throw Error(`${field} 必须为 key 数组`);
+        if (Object.hasOwn(n, field))
+          throw Error(`${field} 已移除，请使用两类概念关键词`);
       const identity = {
         title: note.title,
         summary: note.summary,
@@ -84,16 +80,7 @@ export function parseKnowledgeText(input) {
   });
   if (new Set(normalized.map((n) => n.id)).size !== normalized.length)
     throw Error("文本块中存在重复知识点，请合并重复项");
-  return normalized.map((note, i) => {
-    const original = payload.notes[i];
-    for (const field of ["prerequisites", "related"])
-      note[field] = (original[field] || []).map((key) => {
-        if (!keys.has(key))
-          throw Error(`第 ${i + 1} 篇的 ${field} 引用了不存在的 key：${key}`);
-        return keys.get(key);
-      });
-    return { note: parseNote(serializeNote(note)), generated: true };
-  });
+  return normalized.map((note) => ({ note, generated: true }));
 }
 export function importKnowledgeText(store, input) {
   const items = parseKnowledgeText(input);

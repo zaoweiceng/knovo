@@ -7,7 +7,7 @@ import net from "node:net";
 import { spawn } from "node:child_process";
 import { once } from "node:events";
 import { serializeNote, acquireLock } from "../shared/protocol.mjs";
-test("HTTP import, watcher, private paths, malformed input and restart persistence", async (t) => {
+test("HTTP SQLite import, private paths, malformed input and restart persistence", async (t) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "knowledge-http-"));
   const portServer = net.createServer();
   portServer.listen(0, "127.0.0.1");
@@ -72,8 +72,8 @@ test("HTTP import, watcher, private paths, malformed input and restart persisten
     updated_at: new Date().toISOString(),
     learning_events: [],
     body: "正文",
-    prerequisites: [],
-    related: [],
+    knowledge_keywords: ["HTTP 测试"],
+    dependency_keywords: [],
     aliases: [],
     merged_from: [],
   };
@@ -106,19 +106,25 @@ test("HTTP import, watcher, private paths, malformed input and restart persisten
   assert.equal((await deletion.json()).count, 1);
   const archived = await fetch(base + "/api/trash").then((r) => r.json());
   assert.equal(archived.length, 1);
-  const restored = await fetch(
+  const restoredDirectory = await fetch(
     base + "/api/trash/" + archived[0].token + "/restore",
     { method: "POST" },
   );
-  assert.equal(restored.status, 200);
+  assert.equal(restoredDirectory.status, 200);
   n.summary = "修改后简介";
-  fs.writeFileSync(path.join(root, "http-note.md"), serializeNote(n));
-  await wait(async () => {
-    const data = await fetch(base + "/api/notes/http-note").then((r) =>
-      r.json(),
-    );
-    return data.summary === "修改后简介";
+  assert.equal(fs.existsSync(path.join(root, "http-note.md")), false);
+  const summarySource = await fetch(base + "/api/notes/http-note/source").then(
+    (r) => r.json(),
+  );
+  const summarySave = await fetch(base + "/api/notes/http-note", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      text: serializeNote(n),
+      expected_hash: summarySource.hash,
+    }),
   });
+  assert.equal(summarySave.status, 200);
   await fetch(base + "/api/reviews/http-note", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -221,11 +227,13 @@ test("HTTP import, watcher, private paths, malformed input and restart persisten
   );
   assert.equal(restored.review.stage, 1);
   assert.equal(restored.history.length, 1);
-  fs.unlinkSync(path.join(root, "http-note.md"));
-  await wait(async () => {
-    const data = await fetch(base + "/api/stats").then((r) => r.json());
-    return data.total === 0;
+  const finalDelete = await fetch(base + "/api/notes/http-note", {
+    method: "DELETE",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ expected_hash: restored.hash }),
   });
+  assert.equal(finalDelete.status, 200);
+  assert.equal(fs.existsSync(path.join(root, "http-note.md")), false);
   assert.equal(
     (await fetch(base + "/api/stats").then((r) => r.json())).days[0].count,
     2,

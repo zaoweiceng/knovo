@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+import { isSqliteLibrary, withSqliteLibrary } from "./sqlite-maintenance.mjs";
+import { normalizeKeyword } from "../shared/relations.mjs";
 import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
@@ -13,6 +15,8 @@ import {
   writeJSON,
 } from "../shared/protocol.mjs";
 export function indexLibrary(root) {
+  if (isSqliteLibrary(root))
+    return withSqliteLibrary(root, (temp) => indexLibrary(temp));
   const index = {},
     errors = [];
   for (const file of files(root)) {
@@ -32,6 +36,8 @@ function readState(stateDir) {
   return fs.existsSync(p) ? JSON.parse(fs.readFileSync(p, "utf8")) : null;
 }
 export function scan(root, explicit = []) {
+  if (isSqliteLibrary(root))
+    return withSqliteLibrary(root, (temp) => scan(temp, explicit), true);
   const stateDir = path.join(root, ".knowledge"),
     release = acquireLock(stateDir);
   try {
@@ -59,8 +65,21 @@ export function scan(root, explicit = []) {
         .filter(([f]) => f !== file)
         .map(([f, x]) => {
           const direct =
-            [...n.prerequisites, ...n.related].includes(x.id) ||
-            [...x.prerequisites, ...x.related].includes(n.id);
+            n.dependency_keywords.some((k) =>
+              x.knowledge_keywords.some(
+                (v) => normalizeKeyword(v) === normalizeKeyword(k),
+              ),
+            ) ||
+            x.dependency_keywords.some((k) =>
+              n.knowledge_keywords.some(
+                (v) => normalizeKeyword(v) === normalizeKeyword(k),
+              ),
+            ) ||
+            n.knowledge_keywords.some((k) =>
+              x.knowledge_keywords.some(
+                (v) => normalizeKeyword(v) === normalizeKeyword(k),
+              ),
+            );
           const a = n.title.toLowerCase(),
             b = x.title.toLowerCase();
           let score = direct ? 100 : 0;
@@ -99,6 +118,8 @@ export function scan(root, explicit = []) {
   }
 }
 export function apply(root, manifest) {
+  if (isSqliteLibrary(root))
+    return withSqliteLibrary(root, (temp) => apply(temp, manifest), true);
   if (
     !manifest ||
     !Array.isArray(manifest.operations) ||
@@ -209,6 +230,8 @@ export function apply(root, manifest) {
   }
 }
 export function restore(root, batch) {
+  if (isSqliteLibrary(root))
+    return withSqliteLibrary(root, (temp) => restore(temp, batch), true);
   if (!/^[a-zA-Z0-9-]+$/.test(batch)) throw Error("无效批次 ID");
   const stateDir = path.join(root, ".knowledge"),
     release = acquireLock(stateDir);
@@ -248,6 +271,12 @@ export function restore(root, batch) {
     release();
   }
 }
+export function readNote(root, file) {
+  if (isSqliteLibrary(root))
+    return withSqliteLibrary(root, (temp) => readNote(temp, file));
+  const text = fs.readFileSync(safePath(root, file), "utf8");
+  return { path: file, text, hash: hash(text) };
+}
 function options(argv) {
   const args = [...argv],
     result = {};
@@ -269,6 +298,7 @@ if (
     let result;
     if (command === "scan")
       result = scan(root, args.files ? JSON.parse(args.files) : []);
+    else if (command === "read") result = readNote(root, args.file);
     else if (command === "validate") {
       const { index, errors } = indexLibrary(root);
       const ids = new Set();
@@ -295,7 +325,8 @@ if (
       if (alive) throw Error("锁持有进程仍在运行，不能解锁");
       fs.rmSync(lock, { recursive: true });
       result = { unlocked: true };
-    } else throw Error("命令：scan | validate | apply | restore | unlock");
+    } else
+      throw Error("命令：scan | read | validate | apply | restore | unlock");
     console.log(JSON.stringify(result, null, 2));
   } catch (e) {
     console.error(JSON.stringify({ error: e.message }));

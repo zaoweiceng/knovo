@@ -16,11 +16,11 @@ export const knowledgePrompt = `请根据这个对话窗口中已经发生的学
       "title": "知识点的标题",
       "summary": "独立、准确的简介",
       "category": ["计算机", "人工智能", "Agent"],
-      "tags": ["关键词一", "关键词二"],
+      "tags": ["检索标签"],
+      "knowledge_keywords": ["本篇讲解的具体概念"],
+      "dependency_keywords": ["理解本篇必须先掌握的具体概念"],
       "status": "ready",
       "learning_events": [{"date": null, "summary": "本次对话中学习或澄清的内容"}],
-      "prerequisites": [],
-      "related": [],
       "body": "## 核心解释\\n\\n完整的 Markdown 正文。\\n\\n## 具体例子\\n\\n有上下文的例子、推理过程与结论。"
     }
   ]
@@ -30,9 +30,13 @@ export const knowledgePrompt = `请根据这个对话窗口中已经发生的学
 - notes 必须为数组，一篇或多篇均使用同一结构，一次最多 100 篇。上面的内容仅示例格式，实际输出须来自对话。
 - key 在本批次中唯一，只用字母、数字、短横线或下划线，例如 concept-1、concept-2。不要生成 UUID 或创建/修改时间，知序会自动生成。
 - title、summary、body 必须是非空字符串；category 是非空字符串数组；tags 是字符串数组。
+- knowledge_keywords 是本篇实际定义、解释或推导的核心概念，通常 1–5 个；dependency_keywords 是理解本篇所必需且本篇未充分解释的前置概念，没有则 []。两者都是非空字符串组成的数组，最多各 30 项、每项最多 120 字符。
+- 关键词使用准确、稳定、可跨对话复用的标准概念名称；同一概念在本批次必须同名。系统仅做全半角、大小写和空白规范化后的完整匹配，不做语义或子串匹配。不要把同义词写成一个括号串；可将确有必要的标准别名作为独立关键词。不用“基础”“技术”“计算机”等宽泛词，不把正文中偶然提及的概念当成本篇讲解的概念，不编造依赖。
+- 依赖关键词可描述本批次尚未包含的前置概念；未来导入讲解该概念的知识后系统会动态关联。A 的 dependency_keywords 与 B 的 knowledge_keywords 匹配时，B 是 A 的候选前置知识；共享 knowledge_keywords 的篇目可以成为相关知识。关键词只提供匹配依据，不代表系统已验证前置内容完整。
+- tags 保留用于自由检索与分类筛选，不用于推断依赖，不必机械复制两类概念词。
 - status 只能是 ready（已整理）或 learning（待理解/待核实）。
 - learning_events 是数组，每条必须有 date（YYYY-MM-DD 或 null）和非空 summary；没有可靠日期时仍记录学习内容，date 为 null。
-- prerequisites 表示理解本篇所需的前置知识，related 表示相关知识。两者只引用本次 notes 中其它篇的 key，禁止自引用、未知 key 和编造外部 ID；没有关联就用空数组。关联不要写进正文。
+- 不输出 prerequisites 或 related 等旧 ID 关联字段。关系只根据两类概念关键词动态匹配，关联不写入正文。
 - body 中的换行使用 JSON 转义 \\n，双引号和反斜杠正确转义。正文可以包含 Markdown 代码示例、表格或分隔线；正文里的代码围栏也属于 JSON 字符串内容。确保 JSON 可直接解析。
 
 现在整理本对话中所有有价值且能够独立学习的知识点，并按以上格式输出。`;

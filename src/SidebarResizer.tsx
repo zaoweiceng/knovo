@@ -1,12 +1,16 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 export default function SidebarResizer({
   width,
   onChange,
+  side = "left",
 }: {
+  side?: "left" | "right";
   width: number;
   onChange: (width: number) => void;
 }) {
+  const origin = useRef({ x: 0, width });
+  const direction = side === "right" ? -1 : 1;
   const [dragging, setDragging] = useState(false);
   useEffect(() => {
     document.body.classList.toggle("resizing-sidebar", dragging);
@@ -16,9 +20,9 @@ export default function SidebarResizer({
     onChange(Math.min(420, Math.max(220, Math.round(value))));
   return (
     <div
-      className={`sidebar-resizer ${dragging ? "dragging" : ""}`}
+      className={`sidebar-resizer ${side === "right" ? "right-sidebar-resizer" : ""} ${dragging ? "dragging" : ""}`}
       role="separator"
-      aria-label="调整目录侧栏宽度"
+      aria-label={side === "right" ? "调整关联侧栏宽度" : "调整目录侧栏宽度"}
       aria-orientation="vertical"
       aria-valuemin={220}
       aria-valuemax={420}
@@ -29,10 +33,14 @@ export default function SidebarResizer({
         if (e.button !== 0) return;
         e.preventDefault();
         e.currentTarget.setPointerCapture(e.pointerId);
+        origin.current = { x: e.clientX, width };
         setDragging(true);
       }}
       onPointerMove={(e) => {
-        if (dragging) update(e.clientX);
+        if (dragging)
+          update(
+            origin.current.width + direction * (e.clientX - origin.current.x),
+          );
       }}
       onPointerUp={(e) => {
         setDragging(false);
@@ -41,7 +49,7 @@ export default function SidebarResizer({
       }}
       onLostPointerCapture={() => setDragging(false)}
       onPointerCancel={() => setDragging(false)}
-      onDoubleClick={() => onChange(244)}
+      onDoubleClick={() => onChange(side === "right" ? 245 : 244)}
       onKeyDown={(e) => {
         if (["ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key)) {
           e.preventDefault();
@@ -50,7 +58,7 @@ export default function SidebarResizer({
               ? 220
               : e.key === "End"
                 ? 420
-                : width + (e.key === "ArrowRight" ? 16 : -16),
+                : width + direction * (e.key === "ArrowRight" ? 16 : -16),
           );
         }
       }}

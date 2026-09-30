@@ -6,6 +6,8 @@ export type Note = {
   summary: string;
   category: string[];
   tags: string[];
+  knowledge_keywords: string[];
+  dependency_keywords: string[];
   aliases: string[];
   body: string;
   status: "ready" | "learning";
@@ -21,6 +23,8 @@ export type Relation = {
   title: string;
   category?: string[];
   missing?: boolean;
+  origin?: "keyword";
+  matched_keywords?: string[];
 };
 export type Detail = Note & {
   relations: {

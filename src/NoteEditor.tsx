@@ -3,7 +3,7 @@ import EditorToolbar from "./EditorToolbar";
 import { EditorContent } from "@tiptap/react";
 import { useVisualEditor } from "./useVisualEditor";
 import { EditorHistory, type EditorSnapshot } from "./editorHistory";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import PasteImport from "./PasteImport";
 import { api } from "./types";
 import { newDocument, splitDocument, joinDocument } from "./editorDocument";
@@ -27,6 +27,27 @@ export default function NoteEditor({
   const { meta, body: text } = draft;
   const history = useRef(new EditorHistory(draft.body));
   const [mode, setMode] = useState<"split" | "visual">("split");
+  const panes = useRef<HTMLDivElement>(null);
+  const [split, setSplit] = useState(() => {
+    try {
+      const saved = Number(localStorage.getItem("knowledge-editor-split"));
+      return saved >= 20 && saved <= 80 ? saved : 50;
+    } catch {
+      return 50;
+    }
+  });
+  const [resizing, setResizing] = useState(false);
+  const resize = (value: number) => setSplit(Math.max(20, Math.min(80, value)));
+  useEffect(() => {
+    try {
+      localStorage.setItem("knowledge-editor-split", String(split));
+    } catch {}
+  }, [split]);
+  useEffect(() => {
+    if (!resizing) return;
+    document.body.classList.add("resizing-editor");
+    return () => document.body.classList.remove("resizing-editor");
+  }, [resizing]);
   const [surface, setSurface] = useState<"source" | "rich">("source");
   const command = useRef(false);
   const setText = (body: string, group = "") => {
@@ -41,6 +62,8 @@ export default function NoteEditor({
     category.length ? category.join(" / ") : "未分类",
   );
   const [tagsText, setTagsText] = useState("");
+  const [knowledgeText, setKnowledgeText] = useState("");
+  const [dependencyText, setDependencyText] = useState("");
   const [hash, setHash] = useState("");
   const [loading, setLoading] = useState(!!id);
   const [busy, setBusy] = useState(false);
@@ -110,6 +133,8 @@ export default function NoteEditor({
             setInitial(JSON.stringify(parsed));
             setCategoryText(parsed.meta.category.join(" / "));
             setTagsText(parsed.meta.tags.join("，"));
+            setKnowledgeText(parsed.meta.knowledge_keywords.join("，"));
+            setDependencyText(parsed.meta.dependency_keywords.join("，"));
             setHash(x.hash);
           }
         })
@@ -334,7 +359,7 @@ export default function NoteEditor({
                   <small>使用 / 分隔目录层级</small>
                 </label>
                 <label>
-                  关键词
+                  检索标签
                   <input
                     value={tagsText}
                     onChange={(e) => {
@@ -348,6 +373,46 @@ export default function NoteEditor({
                     }}
                     placeholder="用逗号分隔"
                   />
+                </label>
+              </div>
+              <div className="metadata-row">
+                <label>
+                  当前知识关键词
+                  <input
+                    value={knowledgeText}
+                    onChange={(e) => {
+                      setKnowledgeText(e.target.value);
+                      setMeta({
+                        knowledge_keywords: e.target.value
+                          .split(/[,，]/)
+                          .map((x) => x.trim())
+                          .filter(Boolean),
+                      });
+                    }}
+                    placeholder="本篇实际讲解的概念，用逗号分隔"
+                  />
+                  <small>
+                    使用具体、标准的概念名称；与依赖关键词匹配后自动建立关联。
+                  </small>
+                </label>
+                <label>
+                  依赖关键词
+                  <input
+                    value={dependencyText}
+                    onChange={(e) => {
+                      setDependencyText(e.target.value);
+                      setMeta({
+                        dependency_keywords: e.target.value
+                          .split(/[,，]/)
+                          .map((x) => x.trim())
+                          .filter(Boolean),
+                      });
+                    }}
+                    placeholder="理解本篇需要先掌握的概念，用逗号分隔"
+                  />
+                  <small>
+                    没有前置要求可留空；尚无匹配知识时，保留关键词等待后续匹配。
+                  </small>
                 </label>
               </div>
               <label>
@@ -472,6 +537,8 @@ export default function NoteEditor({
           </div>
         </div>
         <div
+          ref={panes}
+          style={{ "--editor-split": `${split}%` } as CSSProperties}
           className={`editor-panes ${mode === "visual" ? "visual-only" : ""}`}
         >
           <section hidden={mode === "visual"}>
@@ -522,6 +589,52 @@ export default function NoteEditor({
               }}
             />
           </section>
+          {mode === "split" && (
+            <div
+              className={`editor-divider ${resizing ? "dragging" : ""}`}
+              role="separator"
+              aria-label="调整编辑区与预览区宽度"
+              aria-orientation="vertical"
+              aria-valuemin={20}
+              aria-valuemax={80}
+              aria-valuenow={Math.round(split)}
+              aria-valuetext={`编辑区 ${Math.round(split)}%，预览区 ${100 - Math.round(split)}%`}
+              tabIndex={0}
+              title="拖动调整左右宽度 · 双击恢复均分"
+              onPointerDown={(e) => {
+                if (e.button !== 0) return;
+                e.preventDefault();
+                e.currentTarget.setPointerCapture(e.pointerId);
+                setResizing(true);
+              }}
+              onPointerMove={(e) => {
+                if (!resizing || !panes.current) return;
+                const bounds = panes.current.getBoundingClientRect();
+                if (bounds.width)
+                  resize(((e.clientX - bounds.left) / bounds.width) * 100);
+              }}
+              onPointerUp={(e) => {
+                setResizing(false);
+                if (e.currentTarget.hasPointerCapture(e.pointerId))
+                  e.currentTarget.releasePointerCapture(e.pointerId);
+              }}
+              onPointerCancel={() => setResizing(false)}
+              onLostPointerCapture={() => setResizing(false)}
+              onDoubleClick={() => resize(50)}
+              onKeyDown={(e) => {
+                if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key))
+                  return;
+                e.preventDefault();
+                resize(
+                  e.key === "Home"
+                    ? 20
+                    : e.key === "End"
+                      ? 80
+                      : split + (e.key === "ArrowLeft" ? -2 : 2),
+                );
+              }}
+            />
+          )}
           <section>
             <div className="editor-pane-label">
               {mode === "visual" ? "所见即所得" : "可编辑预览"} ·
