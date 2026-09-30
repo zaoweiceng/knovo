@@ -1,4 +1,22 @@
 /** Explicit host/origin allowlists; default remains loopback-only. */
+export function startupConfig(env = process.env, args = []) {
+  if (
+    args.length > 1 ||
+    (args.length && !["--local", "--lan"].includes(args[0]))
+  )
+    throw Error("启动参数仅支持 --local 或 --lan");
+  if (args[0] === "--local")
+    return accessConfig({
+      ...env,
+      HOST: "127.0.0.1",
+      ALLOWED_HOSTS: "",
+      PUBLIC_ORIGIN: "",
+    });
+  if (args[0] === "--lan")
+    return accessConfig({ ...env, HOST: "0.0.0.0", ALLOWED_HOSTS: "*" });
+  return accessConfig(env);
+}
+
 export function accessConfig(env = process.env) {
   const host = env.HOST || "127.0.0.1";
   const port = Number(env.PORT || 3210);

@@ -515,7 +515,7 @@ export default function App() {
             <Grid2X2 size={21} />
           </span>
           <span>
-            知序<small>KNOWLEDGE GARDEN</small>
+            知序<small>KNOVO</small>
           </span>
         </button>
         <nav className="main-nav">

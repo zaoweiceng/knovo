@@ -1,5 +1,5 @@
 [Unit]
-Description=Zhixu knowledge library
+Description=Knovo personal knowledge library
 After=network-online.target
 Wants=network-online.target
 

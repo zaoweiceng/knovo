@@ -876,6 +876,34 @@ test("deployment access keeps loopback defaults and allows only configured LAN h
   assert.throws(() => accessConfig({ PORT: "wrong" }));
 });
 
+test("startup modes explicitly override exposure settings while preserving the configured port", async () => {
+  const { startupConfig } = await import("../server/access.mjs");
+  assert.equal(startupConfig({}).host, "127.0.0.1");
+  const local = startupConfig(
+    {
+      HOST: "0.0.0.0",
+      ALLOWED_HOSTS: "*",
+      PUBLIC_ORIGIN: "https://other.example",
+      PORT: "4321",
+    },
+    ["--local"],
+  );
+  assert.equal(local.host, "127.0.0.1");
+  assert.equal(local.port, 4321);
+  assert.equal(local.allows("192.0.2.10", undefined), false);
+  assert.equal(local.allows("localhost", "https://other.example"), false);
+  assert.equal(local.allows("localhost", "http://localhost:4321"), true);
+  const lan = startupConfig({ HOST: "127.0.0.1", PORT: "4321" }, ["--lan"]);
+  assert.equal(lan.host, "0.0.0.0");
+  assert.equal(lan.port, 4321);
+  assert.equal(lan.allows("192.0.2.10", "http://192.0.2.10:4321"), true);
+  assert.equal(lan.allows("192.0.2.10", "http://192.0.2.10:9999"), false);
+  assert.equal(lan.allows("192.0.2.10", "https://other.example"), false);
+  assert.equal(startupConfig({ HOST: "192.0.2.10" }).host, "192.0.2.10");
+  assert.throws(() => startupConfig({}, ["--lan", "--local"]));
+  assert.throws(() => startupConfig({}, ["--unknown"]));
+});
+
 test("document IDs work without secure-context randomUUID", async () => {
   const { documentId } = await import("../src/editorDocument.ts");
   const ids = Array.from({ length: 100 }, () => documentId());

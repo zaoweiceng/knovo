@@ -1,0 +1,27 @@
+name: Bug report / 问题反馈
+description: Report a reproducible problem using synthetic data.
+body:
+  - type: markdown
+    attributes:
+      value: Do not attach personal notes, databases, credentials, or private server details. For vulnerabilities, follow SECURITY.md.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What happened? / 出现了什么问题？
+      description: Include expected and actual behavior.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction steps / 复现步骤
+      description: Include minimal synthetic Markdown or JSON if relevant.
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment / 运行环境
+      description: Commit or version, OS, browser, Node.js version, and pnpm version.
+    validations:
+      required: true

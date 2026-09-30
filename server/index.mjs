@@ -1,5 +1,5 @@
 import { topology } from "../shared/topology.mjs";
-import { accessConfig } from "./access.mjs";
+import { startupConfig } from "./access.mjs";
 import { putImage } from "./assets.mjs";
 import {
   parseKnowledgeText,
@@ -17,7 +17,11 @@ const root = path.resolve(
   process.env.KNOWLEDGE_DIR || path.join(base, "content"),
 );
 const stateDir = path.join(root, ".knowledge");
-const access = accessConfig();
+const access = startupConfig(process.env, process.argv.slice(2));
+if (["0.0.0.0", "::"].includes(access.host))
+  console.warn(
+    "局域网模式：服务监听所有网络接口，没有登录认证；能访问端口的设备均可读写知识库。请勿直接暴露到公网。",
+  );
 const store = new Store(root, stateDir);
 store.sync();
 const app = express();
@@ -207,7 +211,7 @@ const timer = setInterval(() => {
 }, 2000);
 const server = app.listen(access.port, access.host, () =>
   console.log(
-    `知序已启动：http://${access.host}:${access.port}\n知识目录：${root}`,
+    `Knovo · 知序已启动：http://${access.host}:${access.port}\n知识目录：${root}`,
   ),
 );
 for (const signal of ["SIGINT", "SIGTERM"])

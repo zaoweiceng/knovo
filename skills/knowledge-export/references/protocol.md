@@ -31,12 +31,12 @@ merged_from: []
 
 以上仅为格式示例，实际生成时替换 ID、时间与内容。`id` 允许 1–128 位字母、数字、下划线和短横线，优先 UUID；首次分配后不随标题、路径改变。每篇上限 2 MB。
 
-必填：schema_version=1、id、title、summary、category、status、created_at、updated_at、learning_events、非空正文。其余数组缺省视为空。category 是至少一级的非空字符串数组，不限制深度。status 为 ready 或 learning。学习事件 date 为有效 YYYY-MM-DD 或 null，summary 非空；没有可确认的学习事件可用空数组，不虚构日期。
+必填：schema_version=1、id、title、summary、category、status、created_at、updated_at、learning_events、knowledge_keywords、dependency_keywords、非空正文。其余数组缺省视为空。category 是至少一级的非空字符串数组，不限制深度。status 为 ready 或 learning。学习事件 date 为有效 YYYY-MM-DD 或 null，summary 非空；没有可确认的学习事件可用空数组，不虚构日期。
 
 knowledge_keywords 与 dependency_keywords 均为必填字符串数组，无内容时填 []。前者只列本篇实际讲解的概念，后者只列理解本篇需要的前置概念。依赖词与其他知识的讲解词规范化后完整匹配，生成“前置知识 → 当前知识”；共享讲解词生成无向相关关系。统一概念命名，不从 tags 或目录推断，不编造 ID，不在正文追加索引。旧 prerequisites / related 字段已删除，校验拒绝旧字段和缺失的新字段。未匹配的依赖词保留，等待后续知识补齐。
 
 merged_from 表示已被当前知识点吸收的历史 ID。源文件必须在同一维护批次归档，不能留下两个活动身份。别名不改变 ID。原始对话 ID/文本与导入进度只留在隐藏工作文件，不放进上述元信息。
 
-正文支持标准 Markdown 和 GFM 表格、列表、代码块；原始 HTML 不执行。请勿写本机绝对路径或引入依赖外网加载的附件；图片第一版显示链接。知识间导航在侧栏提供，不在正文附加索引段。
+正文支持标准 Markdown 和 GFM 表格、列表、代码块；原始 HTML 不执行。请勿写本机绝对路径或引入依赖外网加载的附件；网站内上传的图片使用 `/api/assets/<hash>` 引用；外部图片显示链接。带图片迁移请使用网站导出的 ZIP。知识间导航在侧栏提供，不在正文附加索引段。
 
 校验：`node <runtime>/scripts/knowledge.mjs validate --root <输出目录>`。维护、导出与网站使用相同解析器。

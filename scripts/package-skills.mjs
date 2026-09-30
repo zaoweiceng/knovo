@@ -5,9 +5,11 @@ for (const name of ["knowledge-export", "knowledge-maintain"]) {
   const dir = path.join(out, name);
   fs.mkdirSync(dir, { recursive: true });
   fs.cpSync(path.resolve("skills", name), dir, { recursive: true });
+  fs.copyFileSync("LICENSE", path.join(dir, "LICENSE"));
   const runtime = path.join(dir, "scripts/runtime");
   fs.mkdirSync(path.join(runtime, "shared"), { recursive: true });
   fs.mkdirSync(path.join(runtime, "scripts"), { recursive: true });
+  fs.copyFileSync(".npmrc", path.join(runtime, ".npmrc"));
   fs.copyFileSync(
     "shared/protocol.mjs",
     path.join(runtime, "shared/protocol.mjs"),
@@ -37,6 +39,7 @@ for (const name of ["knowledge-export", "knowledge-maintain"]) {
       {
         name: `${name}-runtime`,
         private: true,
+        license: "MIT",
         type: "module",
         engines: { node: ">=24" },
         dependencies: { yaml: "^2.8.0", "adm-zip": "^0.6.1" },

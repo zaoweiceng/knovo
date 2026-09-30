@@ -1,5 +1,5 @@
 {
-  "name": "atomic-knowledge",
+  "name": "knovo",
   "version": "1.0.0",
   "private": true,
   "type": "module",
@@ -10,6 +10,8 @@
     "dev": "concurrently -k \"node --watch server/index.mjs\" \"vite --host 127.0.0.1\"",
     "build": "tsc -b && vite build",
     "start": "node server/index.mjs",
+    "start:local": "node server/index.mjs --local",
+    "start:lan": "node server/index.mjs --lan",
     "test": "node --import tsx --test tests/*.test.mjs",
     "validate": "node scripts/knowledge.mjs validate",
     "maintain": "node scripts/knowledge.mjs",
@@ -28,6 +30,7 @@
     "@tiptap/extension-task-item": "^3.31.3",
     "@tiptap/extension-task-list": "^3.31.3",
     "@tiptap/markdown": "^3.31.3",
+    "@tiptap/pm": "3.31.3",
     "@tiptap/react": "^3.31.3",
     "@tiptap/starter-kit": "^3.31.3",
     "@xyflow/react": "^12.8.0",
@@ -57,5 +60,23 @@
     "typescript": "^5.8.0",
     "vite": "^6.3.0"
   },
-  "packageManager": "pnpm@10.27.0"
+  "packageManager": "pnpm@10.27.0",
+  "description": "A local-first personal knowledge library with linked concepts, Markdown editing, and spaced repetition.",
+  "license": "MIT",
+  "author": "zaoweiceng",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/zaoweiceng/knovo.git"
+  },
+  "homepage": "https://github.com/zaoweiceng/knovo#readme",
+  "bugs": {
+    "url": "https://github.com/zaoweiceng/knovo/issues"
+  },
+  "keywords": [
+    "knowledge-base",
+    "local-first",
+    "markdown",
+    "spaced-repetition",
+    "sqlite"
+  ]
 }

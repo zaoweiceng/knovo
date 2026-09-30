@@ -1,176 +1,133 @@
-# 知序 · 原子知识库
+# Knovo · 知序
 
-本地运行的个人学习网站。SQLite 统一保存正文、元信息、索引、回收站、编辑历史、新增事件和复习记录；Markdown 保留为正文语法与导入导出格式。两个通用 skill 分别负责导出与增量维护；网站不调用模型，不需要 API Key，也不创建定时任务。
+**Understand one idea. Connect it. Remember it.**
 
-## 启动
+[简体中文](README.zh-CN.md) · [User guide (中文)](docs/usage.zh-CN.md) · [Deployment](deploy/README.md) · [Contributing](CONTRIBUTING.md)
 
-需要 Node.js 24+。首次：
+Knovo is a local-first personal knowledge library. Turn notes and AI conversations into small, reusable knowledge units, connect concepts, and revisit them with spaced repetition. Your notes, images, and review progress stay in local SQLite databases.
+
+The app runs without an account, API key, or model service. The interface is currently in Simplified Chinese. Optional agent skills help extract and maintain knowledge; those run in your chosen AI agent and follow that agent's data-handling settings.
+
+## Features
+
+- **Capture knowledge:** write a note, import Markdown or a Knovo ZIP, or paste structured results from an AI conversation.
+- **Edit with context:** split Markdown/preview and visual editing, tables, local images, LaTeX via KaTeX, and Mermaid diagrams.
+- **Connect ideas:** hierarchical categories, concept keywords, dependency matching, and an interactive knowledge graph.
+- **Remember what you learn:** spaced repetition, a learning timeline, and a heatmap based on actual learning dates.
+- **Keep control of your data:** local SQLite storage, stable note IDs, edit history, a recoverable trash, portable exports, and full backups.
+
+## Quick start
+
+Requires **Node.js 24+** and **pnpm 10.27.0** (the version pinned in `package.json`). The committed `.npmrc` uses the public npm registry; no company mirror is required.
 
 ```sh
-pnpm install
+git clone https://github.com/zaoweiceng/knovo.git
+cd knovo
+pnpm install --frozen-lockfile
 pnpm run build
 pnpm start
 ```
 
-打开 http://127.0.0.1:3210 。后续只需要 `pnpm start`。开发使用 `pnpm run dev`，页面位于 http://127.0.0.1:5173 。服务仅监听本机；不要直接通过公网代理暴露。
+Open **http://127.0.0.1:3210**. New installations start with an empty library. To add seven sample notes, run `pnpm run demo`, then refresh the page. Later starts only require `pnpm start`.
 
-默认知识目录为项目下的 `content/`，可用 `KNOWLEDGE_DIR=/你的目录 pnpm start` 指定；端口由 `PORT` 控制。SQLite 使用 Node 自带的 `node:sqlite`，无需安装数据库。Node 24 可能输出实验性 API 提示，不影响本项目已验证的功能。
+Node.js may print an experimental warning for its built-in `node:sqlite` module. No separate database server is needed.
 
-`pnpm run demo` 可生成 7 篇带“示例”标签的演示笔记，文件 ID 以 `demo-` 开头。这些是产品示例，不是你的历史学习记录；可在网站中移入回收站。新下载的项目默认没有笔记，本次交付目录中已生成示例供预览。
-
-## 日常使用
-
-界面采用黑白灰配色。桌面端拖动左侧栏右边缘可调整宽度（220–420px），刷新后保留；双击边缘重置，也可聚焦边缘后用左右方向键调整。手机端仍使用抽屉。
-
-分类筛选按层级逐级进入，支持直接搜索分类路径；关键词面板优先展示当前分类下的常用词，可搜索和继续展开。已选条件在列表上方显示，可单独移除。
-
-知识点详情页的“删除知识点”会将记录移入 SQLite 回收站；可从左侧底部“回收站”恢复，保留原 ID、复习进度和首次入库记录。不提供永久清空；同 ID 或原路径被占用时拒绝覆盖。删除不会级联删除相关知识，失效引用会标记待修复。回收站包含在知识目录的完整备份中。
-
-- 导出 skill 生成标准 `.md` 后，在页面拖拽/选择导入。导入、编辑和删除统一写入 SQLite；迁移后不再监听散落 Markdown，页面约两秒内刷新。
-- 一个知识点一个稳定 ID。改名、移动目录不改 ID；更新同 ID 保留复习状态。
-- 主分类支持任意深度；跨分类联系放在元信息 `knowledge_keywords` / `dependency_keywords`，右侧侧栏和知识网络自动显示。
-- 热力图按 Markdown 中 `learning_events.date` 的实际学习日期统计，同一天同一知识点只计一次；同一知识点在不同日期学习可分别计数，因此累计次数可能大于知识点总数。日期未知的事件不冒充导入当天。点击方块显示同口径的当天知识点；日期修正后自动重算。删除保留历史，合并后的同一天相同身份去重。首次入库审计记录独立保留，不用于学习热力图。
-- 时间线使用 `learning_events` 的真实学习日期，与入库日期分开。
-- 新笔记的首次复习从次日开始，每天最多安排 10 篇首次复习。间隔为 1/3/7/14/30/60 天；没掌握重置，模糊保持，掌握推进。可暂停、恢复或立即复习。
-- 文本搜索支持中英文连续片段、多词 AND、分类及关键词筛选；没有语义搜索。知识网络默认当前节点两跳、最多 100 个，可按批展开（上限 1000）或切换中心。
-
-页面顶部「新建知识点」打开全屏编辑器；知识详情中的「编辑知识点」修改已有记录。新建时先用表单填写标题、简介、分类、关键词、状态和学习记录，再进入正文编辑；编辑已有知识点可随时切换「基本信息」。左侧只编辑 Markdown 正文，右侧实时渲染，双向按滚动比例同步。保存时自动生成 YAML 文件头，并保留 ID、创建时间、关联、别名等未编辑字段。保存会校验协议、自动更新修改时间、在数据库内保存旧版本，并验证读取时的内容指纹；并发冲突不会覆盖。已有 ID、创建时间与复习进度保持不变。取消未保存修改会提示，刷新或关闭页面也会提示；草稿不自动保存。
-
-「批量导出」按学习日期（默认）、创建日期或修改日期选择闭区间，每个知识点仅导出一次；未知学习日期不匹配学习日期筛选。下载的 ZIP 包含完整 Markdown 与版本化清单，保留 ID、分类、标签、学习事件和关联；不会自动扩展到范围外的关联目标，不迁移 SQLite、回收站或复习进度。新设备中未导入的关联显示待修复，新知识按目标设备的规则安排复习。
-
-「导入知识」同一入口支持多个 `.md` 或本系统生成的 `.zip`，可混选。Markdown 沿用同 ID 更新（在数据库内保存旧版本）的行为；ZIP 先校验整包格式、ID、哈希和大小，相同内容跳过，同 ID 不同内容或回收站冲突逐项报告，不覆盖本地版本。有效包的各项独立导入，失败项保留错误明细，可修复后重试。每个 Markdown 最多 2 MB，每包最多 1000 篇、20 MB 正文；ZIP 文件最多 100 MB。
-
-原始 HTML 不执行，外部图片显示为链接，插入的本地图片直接显示；不自动下载附件。
-
-## 两个可移植 skill
-
-源文件在 `skills/knowledge-export/` 与 `skills/knowledge-maintain/`。运行：
+## Startup modes
 
 ```sh
-pnpm run package:skills
+pnpm run start:local  # Only this computer (forces loopback, even with HOST set)
+pnpm run start:lan    # Other devices on your trusted LAN
 ```
 
-如需安装到本机 Codex，可执行 `pnpm run install:skills`，它会打包、复制并安装辅助脚本依赖；已有同名 skill 不覆盖。本次交付已完成本机安装。
+`pnpm start` uses the environment configuration and defaults to local access. Explicit modes override `HOST` and `ALLOWED_HOSTS`; both retain `PORT` and `KNOWLEDGE_DIR`. Local mode also clears `PUBLIC_ORIGIN`. LAN mode listens on all IPv4 interfaces and accepts any destination hostname, while keeping browser requests same-origin. Open `http://<server-lan-ip>:3210` from another device; your firewall must allow the connection. All devices that can reach the port can read and modify notes. Do not expose this unauthenticated port through a public router or proxy.
 
-产出 `artifacts/skills/knowledge-export/` 和 `artifacts/skills/knowledge-maintain/`，每个目录都包含 SKILL.md、协议和独立运行时，可整个复制到其他 agent 的技能目录。默认 Codex 个人目录是 `~/.codex/skills/`；若设置 CODEX_HOME，则使用其 `skills/`。不要只复制 SKILL.md。
+## Everyday workflow
 
-复制后在每个 skill 的 `scripts/runtime/` 中运行 `pnpm install --omit=dev`。两个 skill 不需要网站运行，也不连接 SQLite。可以在对话里直接提供该 SKILL.md 路径；安装发现后也可用 `$knowledge-export` / `$knowledge-maintain`。
+1. Create a note, import Markdown/ZIP, or use **复制整理提示词** to prepare a prompt for an existing AI conversation.
+2. Paste the AI result through **粘贴 AI 结果**, inspect the preview, and import it. Knovo does not contact the AI service itself.
+3. Add the concepts a note explains and the concepts it depends on. Exact normalized keyword matches generate suggested connections.
+4. Review due notes and record your understanding. New notes enter review from the next day, with up to ten first reviews scheduled per day.
 
-导出示例：
+See the [full user guide](docs/usage.zh-CN.md) for editing, import limits, review intervals, images, and migration behavior. Search matches text and keywords; it is not semantic search.
 
-> 使用 knowledge-export，把这次关于 Agent 工具调用的讨论拆成可独立复习的知识点，输出到指定目录。有现成知识索引时复用目录与 ID。
+## Data and configuration
 
-维护示例：
+The default library lives in `content/`, which Git ignores:
 
-> 使用 knowledge-maintain，增量维护 `/绝对路径/content`，只处理本次变化及其有限候选，不整理全库。
+```text
+content/.knowledge/
+├── knowledge.sqlite   # Notes, metadata, reviews, edit history, and trash
+└── assets.sqlite      # Uploaded images
+```
 
-首次维护只建基线，不改已有正文。想立即处理指定文件时明确提供文件列表。每次最多 20 个变化、每项最多 10 个候选；剩余内容留到下次调用。确定性脚本管理扫描、校验、指纹、写锁、备份和恢复；语义判断、拆分与事实核验由调用 skill 的 agent 完成。
+SQLite is the source of truth. Markdown is the editing and exchange format; deleting the database cannot be repaired by rebuilding an index.
 
-## Markdown 协议
-
-完整规范与示例见 `skills/knowledge-export/references/protocol.md`。必填字段包括 `schema_version: 1`、`id`、`title`、`summary`、`category`、`status`、`created_at`、`updated_at`、`learning_events`。关联和别名数组可省略；学习日期未知时用 null，不虚构。
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `KNOWLEDGE_DIR` | `./content` | Library directory; use an absolute path when deploying |
+| `HOST` | `127.0.0.1` | Listen address |
+| `PORT` | `3210` | Backend port |
+| `ALLOWED_HOSTS` | Built-in loopback hosts and the explicit listen address | Additional allowed hostnames, comma-separated |
+| `PUBLIC_ORIGIN` | Unset | Additional allowed browser origin, including scheme and port |
 
 ```sh
-pnpm run validate
-node scripts/knowledge.mjs scan --root content
-node scripts/knowledge.mjs scan --root content --files '["相对路径.md"]'
-node scripts/knowledge.mjs apply --root content --manifest /path/to/changes.json
-node scripts/knowledge.mjs restore --root content --batch 批次ID
+KNOWLEDGE_DIR=/path/to/library PORT=3210 pnpm start
 ```
 
-清单结构见维护 skill 的 `references/maintenance.md`。不要绕过 `apply` 批量覆盖文件；该脚本负责并发检查和备份。合并需同批归档源文件，将旧 ID 写入 `merged_from`。拆分保留原 ID 为概览，新知识点独立复习。
+These are process environment variables; `pnpm start` does not automatically load a `.env` file. The Vite development proxy expects the backend on port 3210.
 
-运行异常遗留 `.knowledge/write.lock` 时，先确保原进程已结束，再执行 `node scripts/knowledge.mjs unlock --root content`。脚本拒绝释放仍由活跃进程持有的锁。
+**Knovo has no login or user authorization.** Anyone who can reach the API can read or modify the library. Host/origin checks do not replace authentication. Keep the default loopback binding, or use an authenticated private access layer. See [deployment](deploy/README.md) and [security](SECURITY.md).
 
-## 历史文件
-
-```sh
-node scripts/extract-history.mjs /path/to/export.zip --list
-node scripts/extract-history.mjs /path/to/export.zip --id 会话ID
-node scripts/extract-history.mjs /path/to/session.jsonl
-```
-
-支持 ChatGPT ZIP/JSON 当前分支、Codex JSONL 可见用户/助手文字及 MD/TXT。不会自动抓取 ChatGPT 云端，不扫描未指定的 Codex 历史。来源格式变化可能需要适配；无法识别会明确失败。附件不转写，原始历史仅作为 skill 输入，不通过网站提供。
-
-## 备份与恢复
+## Back up and move your library
 
 ```sh
 pnpm run backup
-# 或 pnpm run backup -- /path/to/new-backup-folder
+# Or choose a new directory outside your library:
+pnpm run backup -- /path/to/new-backup
 ```
 
-备份整个知识目录，包括 SQLite 一致性快照、维护进度和批次归档；使用共用写锁。备份目标必须是尚不存在、位于知识目录外的新目录。恢复完整备份时先停止网站，再用备份目录替换知识目录，重新启动。
+The backup command takes consistent SQLite snapshots under the shared write lock. To restore, stop Knovo, preserve your current library, replace the entire library directory with the backup, and restart.
 
-`.knowledge/knowledge.sqlite` 中复习与新增历史不可从 Markdown 重建，因此不要把“重建索引”等同于删数据库。服务启动从 SQLite 读取正文；数据库包含唯一正式内容，不可删除后重建。维护批次可独立 restore：恢复前核验文件未被后续修改，恢复后网站撤销对应合并映射；之后发生的新复习事件仍保留。
+- **Full backup:** preserves both databases, review progress, trash, and maintenance history.
+- **ZIP export/import:** moves selected notes and referenced images; it does not move review progress or trash.
+- **Plain Markdown:** preserves note text and metadata; image binaries are not included.
 
-## 实现与验证
+Never copy only one database from a running instance or mix database files from different backups.
 
-- `shared/protocol.mjs`：网站与 skill 共用解析、文件写入和锁协议。
-- `server/`：SQLite 正式存储、旧文件迁移、本地 API；写操作使用事务与进程间写锁。
-- `src/`：三栏阅读、目录、热力图、网络图、搜索和复习。
-- `scripts/`：增量维护、历史提取、打包、备份及可选示例。
+## Optional agent skills
 
-`npm test` 覆盖中文搜索、重复导入、异常文件保留、复习日程、关系网络、基线与增量限制、冲突拒绝、合并恢复、历史提取和日历边界；`pnpm run build` 验证 TypeScript 与生产构建。
+The repository includes `knowledge-export` for extracting atomic notes and `knowledge-maintain` for incremental maintenance of Markdown or SQLite libraries.
 
-### 从任意 AI 对话整理并粘贴导入
-
-主页「复制整理提示词」包含完整的 `zhixu-knowledge-v1` JSON 规范。将提示词发到原来的 AI 对话窗口，复制返回的整个代码块，在「新建知识点 → 粘贴 AI 结果」或主页快捷入口粘贴。系统自动识别并预览，确认后批量导入（一次最多 100 篇、20 MB；每篇仍限 2 MB）。无需安装 skill，网站也不调用模型。
-
-JSON 以 `notes` 数组承载多篇，每篇正文是 `body` Markdown 字符串；本批次通过唯一 `key` 建立前置/相关关联。系统生成稳定 ID 和时间，不让 AI 编造日期。未知学习日期为 null。支持带/不带外层代码围栏，也兼容单篇完整 Markdown。格式不合法时显示具体原因且不写入；相同内容重复导入跳过，同 ID 冲突不覆盖。修改 AI 原文后重新整理的内容可能生成新 ID，可使用增量维护 skill 去重。
-
-### 编辑工具与图片
-
-基本信息和正文切换位于顶部操作区。正文工具栏与右键菜单支持一至六级标题、正文、粗体、斜体、删除线、代码、列表、待办、引用和表格。行内格式作用于选中文字，标题与列表应用到选中的整行；无选区时应用到光标所在行。
-
-### 公式与流程图
-
-阅读、复习和可视化编辑均支持 LaTeX 数学公式（KaTeX）与 Mermaid 图表。工具栏「段落」菜单及右键菜单可插入行内公式、独立公式和 Mermaid 流程图。可视化区域点击公式可修改 LaTeX 源码并应用；Mermaid 代码块可直接编辑源码，下方同步显示图表。公式或图表语法错误时保留源码，其余正文继续显示。渲染库与公式字体随应用打包，无需外部 CDN。
-
-行内使用 `$E = mc^2$`，独立公式用单独成行的 `$$` 包围：
-
-```markdown
-$$
-P(token_{t+1} \mid tokens)
-$$
+```sh
+pnpm run package:skills
+# Optional: install into your local Codex skills directory
+pnpm run install:skills
 ```
 
-流程图写在 `mermaid` 代码块中：
+Packages appear in `artifacts/skills/`. Copy the entire skill directory, including its runtime and license. For manual installation, run `pnpm install --prod` in its `scripts/runtime/` directory. The installer uses `$CODEX_HOME/skills` or `~/.codex/skills` and skips existing skills.
 
-````markdown
-```mermaid
-flowchart TD
-  A["提出问题"] --> B["理解原理"]
-  B --> C["应用与验证"]
+Skills do not require the web app to be running. Review the source and your agent's data settings before providing personal notes. See the [Markdown protocol](skills/knowledge-export/references/protocol.md) and [maintenance instructions](skills/knowledge-maintain/references/maintenance.md).
+
+## Development
+
+```sh
+pnpm install --frozen-lockfile
+pnpm run dev       # Frontend: http://127.0.0.1:5173; backend: port 3210
+pnpm test
+pnpm run build
 ```
-````
 
-整理提示词会引导 AI 在有助于理解时使用公式和图表，并解释符号与步骤。粘贴导入的 JSON 中，换行写成 `\n`，LaTeX 反斜杠写成 `\\`，节点标签的双引号写成 `\"`；直接编辑 Markdown 时使用原始语法。保存、Markdown 导出和再次导入保留公式及图表源码。
+| Directory | Responsibility |
+| --- | --- |
+| `src/` | React UI, Markdown and visual editors, graph, and review screens |
+| `server/` | Express API, SQLite storage, assets, and import/export |
+| `shared/` | Note protocol, relationships, topology, and text imports |
+| `scripts/` | Backups, maintenance, history extraction, and skill packaging |
+| `skills/` | Portable agent instructions and protocol references |
+| `tests/` | Storage, HTTP, graph, editor, and scientific Markdown tests |
 
-「图片」选择 PNG、JPEG、GIF 或 WebP（单张最多 10 MB）。图片二进制存入独立的 `.knowledge/assets.sqlite`，知识索引与复习状态保留在 `.knowledge/knowledge.sqlite`。两个数据库分别启用 WAL；图片存入 assets 表，以内容 SHA-256 去重，Markdown 使用稳定的 `/api/assets/<hash>` 引用。迁移 ZIP v2 自动包含被引用的图片原始二进制并校验哈希；导入兼容旧版 v1，无需外部图片目录。正文最多 20 MB，含图片总内容最多 95 MB，ZIP 最多 100 MB。
+Contributions in English or Chinese are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request. Report vulnerabilities through the process in [SECURITY.md](SECURITY.md).
 
-完整备份必须同时保留两个 SQLite 文件及迁移归档（`pnpm run backup` 已包含，使用 SQLite 备份 API 而非直接复制运行中的数据库）；仅导出 Markdown 不包含回收站与复习进度。删除知识点或取消插图草稿暂不清理图片，以免回收站恢复或历史版本丢图。
+## License
 
-升级时自动将旧 knowledge.sqlite 的图片复制到 assets.sqlite，逐条核对哈希与内容后移除旧表；中断后可重试。迁移不改变图片引用。旧数据库释放的页留待 SQLite 复用，不在启动时执行耗时的 VACUUM。恢复时停止服务后恢复整个备份目录，避免混用不同时间的两个数据库。
-
-### 可视化编辑与撤销
-
-正文工具栏右侧可切换「分栏编辑」和「所见即所得」。分栏右侧同样可直接输入、编辑表格，并同步更新左侧 Markdown。点击表格单元格后，工具栏出现增删行列快捷按钮；「表格」菜单和右键菜单提供指定方向插入、删除行列及整表删除。Tab 可切换单元格。
-
-源码输入、可视化编辑、插入表格和格式操作共用当前编辑会话的撤销历史：`⌘/Ctrl Z` 撤销，`⌘/Ctrl Shift Z` 或 `Ctrl Y` 重做，也可使用工具栏按钮。切换模式不清空历史，关闭编辑器后历史不保留。正文仍保存为 Markdown，可视化编辑会规范化 Markdown 排版，支持常用 GFM 标题、列表、待办、表格、代码块、链接及图片；不是 Typora 全部扩展语法的复刻。
-
-### 按概念关键词动态关联
-
-导入 JSON（仍使用 `zhixu-knowledge-v1`）和 Markdown 文件头要求两个必填数组：`knowledge_keywords`（本篇实际讲解的核心概念）和 `dependency_keywords`（理解本篇所需的前置概念）。编辑器的基本信息中可维护这两类词，网站的整理提示词已包含输出规则。
-
-依赖词与其他知识的当前知识关键词完整匹配时，生成前置关系及反向依赖；共享当前知识关键词时生成相关关系。匹配仅规范化全半角、大小写和连续空白，不做子串、同义词或语义推断。多个知识讲解同一概念时可同时匹配；自动匹配是候选学习关系，不保证任一篇都完整覆盖前置要求。自动前置关系不会形成循环或自引用。侧栏展示匹配词，知识网络使用同一套关系。
-
-新增、编辑、删除、恢复、合并后按当前有效知识重新计算。knowledge_keywords 与 dependency_keywords 均为必填字符串数组，无内容时填 []。前者只列本篇实际讲解的概念，后者只列理解本篇需要的前置概念。依赖词与其他知识的讲解词规范化后完整匹配，生成“前置知识 → 当前知识”；共享讲解词生成无向相关关系。统一概念命名，不从 tags 或目录推断，不编造 ID，不在正文追加索引。旧 prerequisites / related 字段已删除，校验拒绝旧字段和缺失的新字段。未匹配的依赖词保留，等待后续知识补齐。
-
-
-### 从散落 Markdown 迁移到 SQLite
-
-启动时自动执行一次迁移：校验所有旧正文、回收站与编辑备份，生成并核验 `.knowledge/markdown-migration-*.zip`，在同一个事务中导入记录与旧维护进度，然后按原文件哈希逐一清理散落文件及空目录。无效内容、重复 ID 或合并冲突会中止迁移并保留原文件；迁移已提交但清理中断时，下次启动继续清理，不重新导入旧内容。非空目录和数据库目录保留。
-
-正式记录存于 `.knowledge/knowledge.sqlite`：`documents` 保存完整正文来源，`notes` 保存检索元信息，`deleted_documents` 保存回收站，`document_history` 保存编辑前版本，`maintenance_state` 保存维护状态与归档。图片仍保存在独立的 `assets.sqlite`。网页中路径仅为分类或逻辑导出路径，不对应必须维护的磁盘文件。
-
-旧独立 Markdown 库仍可使用维护脚本。对 SQLite 库，`scan/read/apply/restore/validate` 自动使用数据库：`read --file <逻辑路径.md>` 返回正文和指纹，维护操作使用临时工作区并在完成后将内容与批次归档一起事务提交，临时文件随即清理。`pnpm run demo` 也直接入库。
+[MIT](LICENSE) © 2026 [zaoweiceng](https://github.com/zaoweiceng). Third-party dependencies retain their own licenses; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
