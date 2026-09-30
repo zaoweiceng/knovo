@@ -16,6 +16,34 @@ The app runs without an account, API key, or model service. The interface is cur
 - **Remember what you learn:** spaced repetition, a learning timeline, and a heatmap based on actual learning dates.
 - **Keep control of your data:** local SQLite storage, stable note IDs, edit history, a recoverable trash, portable exports, and full backups.
 
+## A visual walkthrough
+
+These screenshots show the real interface with sample data.
+
+### 1. Import and browse
+
+The overview shows your library, learning activity, and due reviews. Use **复制整理提示词** to copy a prompt into an existing AI conversation, then **粘贴 AI 结果** to preview and import the resulting notes.
+
+![Overview with import controls, library statistics, and a learning heatmap](docs/images/overview.jpg)
+
+### 2. Edit a note
+
+Open a note and choose **编辑知识点**. The split editor shows Markdown alongside its rendered preview, including tables, formulas, and Mermaid diagrams. You can also switch to visual editing.
+
+![Split editor with Markdown source and a live Mermaid diagram preview](docs/images/editor.jpg)
+
+### 3. Explore connections
+
+Add concept and dependency keywords, then open **知识网络** to explore their relationships. Click a folder to expand or collapse it, double-click to enter it, and double-click a note to read it. Blue arrows point from prerequisites to the notes that depend on them.
+
+![Knowledge graph showing folders and prerequisite relationships](docs/images/network.jpg)
+
+### 4. Review and remember
+
+Open **今日复习** and try to explain the idea before choosing **展开知识点** to reveal the note. Rate your understanding with **没掌握** (not yet), **模糊** (uncertain), or **掌握** (understood). Each button shows the next review interval.
+
+![Review screen with the revealed note and understanding ratings](docs/images/review.jpg)
+
 ## Quick start
 
 Requires **Node.js 24+** and **pnpm 10.27.0** (the version pinned in `package.json`).
