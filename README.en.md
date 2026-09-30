@@ -18,7 +18,7 @@ The app runs without an account, API key, or model service. The interface is cur
 
 ## Quick start
 
-Requires **Node.js 24+** and **pnpm 10.27.0** (the version pinned in `package.json`). The committed `.npmrc` uses the public npm registry; no company mirror is required.
+Requires **Node.js 24+** and **pnpm 10.27.0** (the version pinned in `package.json`).
 
 ```sh
 git clone https://github.com/zaoweiceng/knovo.git

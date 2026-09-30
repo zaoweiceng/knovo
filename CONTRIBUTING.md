@@ -42,6 +42,6 @@ gitleaks git . --log-opts="--all --full-history" --redact
 
 ## Keep personal data out of contributions
 
-Do not commit knowledge libraries, conversation exports, database files, backups, `.env` files, credentials, or real deployment details. Keep the checked-in `.npmrc` limited to public registry configuration; never add authentication tokens. If your shell or user-level configuration overrides registries, verify dependency changes against `https://registry.npmjs.org/`. Use `example.com`, documentation IP addresses such as `192.0.2.10`, and synthetic notes in examples and tests. Review `git diff --cached` before committing. Report vulnerabilities according to [SECURITY.md](SECURITY.md), without placing exploit details or secrets in a public issue.
+Do not commit knowledge libraries, conversation exports, database files, backups, `.env` files, credentials, or real deployment details. Use `example.com`, documentation IP addresses such as `192.0.2.10`, and synthetic notes in examples and tests. Review `git diff --cached` before committing. Report vulnerabilities according to [SECURITY.md](SECURITY.md), without placing exploit details or secrets in a public issue.
 
 By submitting a contribution, you agree that it is provided under the repository's [MIT License](LICENSE). Be respectful and keep feedback focused on the work.

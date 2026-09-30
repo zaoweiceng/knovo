@@ -18,7 +18,7 @@ Knovo 是本地优先的个人知识库：把笔记和 AI 对话整理成可独�
 
 ## 快速开始
 
-需要 **Node.js 24+** 和 **pnpm 10.27.0**（与 `package.json` 一致）。仓库内的 `.npmrc` 指定 npm 官方公共源，不依赖公司内网镜像。
+需要 **Node.js 24+** 和 **pnpm 10.27.0**（与 `package.json` 一致）。
 
 ```sh
 git clone https://github.com/zaoweiceng/knovo.git

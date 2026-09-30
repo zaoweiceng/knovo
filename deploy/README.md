@@ -1,6 +1,6 @@
 # Deploying Knovo
 
-These are example Linux/systemd templates. Adjust the paths and Node.js executable for your machine; they do not describe an existing deployment. Node.js 24+ is required.
+These are example Linux/systemd templates. Adjust the paths and Node.js executable for your machine. Node.js 24+ is required.
 
 Knovo has no login or per-user access control. Templates default to loopback access. For remote use, add an authenticated private access layer and appropriate firewall rules before changing `HOST`. See [SECURITY.md](../SECURITY.md).
 
