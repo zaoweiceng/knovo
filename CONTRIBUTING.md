@@ -34,7 +34,7 @@ pnpm run package:skills
 - Format only files you changed using `pnpm exec prettier --write <files>`; avoid unrelated formatting changes.
 - Commit `pnpm-lock.yaml` when dependencies change. The application stays `private: true` in package metadata to prevent accidental npm publication; this does not affect its MIT license.
 
-CI runs the tests, production build, skill packaging, and a Gitleaks scan of Git history. To run the secret scan locally, install Gitleaks and run:
+Run the checks above locally before submitting a change. To scan Git history for secrets, install Gitleaks and run:
 
 ```sh
 gitleaks git . --log-opts="--all --full-history" --redact

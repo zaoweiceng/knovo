@@ -1,6 +1,6 @@
 # Knovo 使用指南
 
-[返回中文 README](../README.zh-CN.md) · [English](../README.md)
+[返回中文 README](../README.md) · [English](../README.en.md)
 
 本地运行的个人学习网站。SQLite 统一保存正文、元信息、索引、回收站、编辑历史、新增事件和复习记录；Markdown 保留为正文语法与导入导出格式。两个通用 skill 分别负责导出与增量维护；网站不调用模型，不需要 API Key。skill 由你选择的 AI agent 执行，可能将你提供的内容发送给该 agent 的模型服务。
 
