@@ -4,8 +4,20 @@ import { TableKit } from "@tiptap/extension-table";
 import TaskList from "@tiptap/extension-task-list";
 import TaskItem from "@tiptap/extension-task-item";
 import Image from "@tiptap/extension-image";
+import {
+  VisualInlineMath,
+  VisualBlockMath,
+  VisualCodeBlock,
+} from "./visualScientificNodes.ts";
 export const visualExtensions = [
-  StarterKit.configure({ undoRedo: false, link: { openOnClick: false } }),
+  StarterKit.configure({
+    undoRedo: false,
+    codeBlock: false,
+    link: { openOnClick: false },
+  }),
+  VisualCodeBlock,
+  VisualInlineMath,
+  VisualBlockMath,
   Markdown,
   TableKit.configure({ table: { resizable: false } }),
   TaskList,

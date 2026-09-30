@@ -20,6 +20,17 @@ export function formatMarkdown(
     value = "\n| 列一 | 列二 |\n| --- | --- |\n| 内容 | 内容 |\n";
   } else if (action === "codeblock") {
     value = "\n```\n" + (selected || "代码") + "\n```\n";
+  } else if (action === "inlineMath") {
+    value = "$" + (selected || "E = mc^2") + "$";
+  } else if (action === "blockMath") {
+    value =
+      "\n\n$$\n" + (selected || "P(token_{t+1} \\mid tokens)") + "\n$$\n\n";
+  } else if (action === "mermaid") {
+    value =
+      "\n\n```mermaid\n" +
+      (selected ||
+        'flowchart TD\n  A["提出问题"] --> B["理解原理"]\n  B --> C["应用与验证"]') +
+      "\n```\n\n";
   } else {
     from = text.lastIndexOf("\n", start - 1) + 1;
     const lineEnd = text.indexOf(

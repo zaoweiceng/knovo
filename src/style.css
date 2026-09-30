@@ -1160,6 +1160,75 @@ input[type="date"] {
   border-top: 1px solid var(--border);
   margin: 28px 0;
 }
+.markdown .katex {
+  color: inherit;
+}
+.markdown .katex-display {
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 8px 0;
+  margin: 20px 0;
+}
+.mermaid-diagram {
+  margin: 20px 0;
+  padding: 16px;
+  background: #fafafa;
+  border: 1px solid #e5e5e5;
+  border-radius: 8px;
+  overflow: auto;
+  text-align: center;
+}
+.mermaid-diagram svg {
+  display: block;
+  margin: auto;
+  max-width: 100%;
+  height: auto;
+}
+.diagram-error {
+  text-align: left;
+}
+.diagram-error > p {
+  color: #a33737;
+}
+.math-node {
+  position: relative;
+}
+.math-render {
+  cursor: pointer;
+}
+.math-render:hover {
+  background: #f0f0f0;
+}
+.math-controls {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  background: #fafafa;
+  max-width: 100%;
+}
+.math-controls[hidden],
+.math-render[hidden] {
+  display: none;
+}
+.math-controls textarea {
+  width: 350px;
+  max-width: 100%;
+  padding: 6px;
+  font-family: monospace;
+}
+.math-controls button {
+  align-self: center;
+  padding: 4px 10px;
+}
+.visual-mermaid pre {
+  margin-bottom: 0;
+}
+.visual-mermaid .mermaid-diagram {
+  margin-top: 6px;
+}
 .learning-log {
   margin-top: 40px;
   border-top: 1px solid var(--border);

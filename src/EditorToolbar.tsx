@@ -154,6 +154,24 @@ export default function EditorToolbar({
         case "codeblock":
           c.toggleCodeBlock().run();
           break;
+        case "inlineMath":
+          c.insertInlineMath({ latex: "E = mc^2" }).run();
+          break;
+        case "blockMath":
+          c.insertBlockMath({ latex: "P(token_{t+1} \\mid tokens)" }).run();
+          break;
+        case "mermaid":
+          c.insertContent({
+            type: "codeBlock",
+            attrs: { language: "mermaid" },
+            content: [
+              {
+                type: "text",
+                text: 'flowchart TD\n  A["提出问题"] --> B["理解原理"]\n  B --> C["应用与验证"]',
+              },
+            ],
+          }).run();
+          break;
         case "bullet":
           c.toggleBulletList().run();
           break;
@@ -237,6 +255,9 @@ export default function EditorToolbar({
     ["strike", "删除线", ""],
     ["code", "行内代码", ""],
     ["codeblock", "代码块", ""],
+    ["inlineMath", "行内公式", "$…$"],
+    ["blockMath", "独立公式", "$$…$$"],
+    ["mermaid", "Mermaid 流程图", ""],
     ["quote", "引用", ""],
     ["bullet", "项目列表", ""],
     ["ordered", "编号列表", ""],

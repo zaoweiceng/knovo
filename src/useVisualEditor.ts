@@ -2,6 +2,7 @@ import { TextSelection } from "@tiptap/pm/state";
 import { useEditor } from "@tiptap/react";
 import { visualExtensions } from "./visualExtensions";
 import { useEffect } from "react";
+import { serializeVisualMarkdown } from "./visualMarkdown";
 
 export function useVisualEditor(
   text: string,
@@ -13,7 +14,8 @@ export function useVisualEditor(
     extensions: visualExtensions,
     content: text,
     contentType: "markdown",
-    onUpdate: ({ editor }) => onChange(editor.getMarkdown()),
+    onUpdate: ({ editor }) =>
+      onChange(serializeVisualMarkdown(editor.markdown!, editor.getJSON())),
     onFocus,
     editorProps: {
       attributes: {
@@ -25,7 +27,10 @@ export function useVisualEditor(
     },
   });
   useEffect(() => {
-    if (editor && editor.getMarkdown() !== text) {
+    if (
+      editor &&
+      serializeVisualMarkdown(editor.markdown!, editor.getJSON()) !== text
+    ) {
       const { from, to } = editor.state.selection;
       editor.commands.setContent(text, {
         contentType: "markdown",

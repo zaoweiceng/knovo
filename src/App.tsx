@@ -8,8 +8,7 @@ import {
   Suspense,
   type CSSProperties,
 } from "react";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
+import Markdown from "./Markdown";
 import {
   BookOpen,
   Grid2X2,
@@ -46,7 +45,6 @@ import {
 } from "./types";
 const NoteEditor = lazy(() => import("./NoteEditor"));
 import ExportDialog from "./ExportDialog";
-import KnowledgeImage from "./KnowledgeImage";
 import PromptCard from "./PromptCard";
 import Heatmap from "./Heatmap";
 import SidebarResizer from "./SidebarResizer";
@@ -71,25 +69,6 @@ const emptyStats: Stats = {
   version: 0,
   errors: [],
 };
-function Markdown({ body }: { body: string }) {
-  return (
-    <div className="markdown">
-      <ReactMarkdown
-        remarkPlugins={[remarkGfm]}
-        components={{
-          a: ({ children, href }) => (
-            <a href={href} target="_blank" rel="noreferrer">
-              {children}
-            </a>
-          ),
-          img: ({ alt, src }) => <KnowledgeImage src={src} alt={alt} />,
-        }}
-      >
-        {body}
-      </ReactMarkdown>
-    </div>
-  );
-}
 export default function App() {
   const [relationsWidth, setRelationsWidth] = useState(() => {
     try {
