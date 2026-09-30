@@ -37,16 +37,35 @@ export function renderMermaid(target: HTMLElement, source: string) {
   target.className = "mermaid-diagram";
   target.setAttribute("role", "img");
   target.setAttribute("aria-label", "Mermaid 图表");
-  target.textContent = "正在绘制图表…";
+  // Keep the last completed diagram visible until the replacement is ready.
+  if (!target.querySelector("svg")) target.textContent = "正在绘制图表…";
   void (async () => {
     try {
       const { default: mermaid } = await loadMermaid();
       if (!active) return;
-      const { svg } = await mermaid.render(
-        `knowledge-mermaid-${++nextId}`,
-        source,
-      );
-      if (active) target.innerHTML = svg;
+      // Mermaid needs an attached DOM for layout measurements. Without a
+      // container it draws its temporary SVG in the visible document body.
+      const staging = document.createElement("div");
+      staging.setAttribute("aria-hidden", "true");
+      Object.assign(staging.style, {
+        position: "fixed",
+        left: "-100000px",
+        top: "0",
+        width: `${target.clientWidth || 800}px`,
+        visibility: "hidden",
+        pointerEvents: "none",
+      });
+      document.body.append(staging);
+      try {
+        const { svg } = await mermaid.render(
+          `knowledge-mermaid-${++nextId}`,
+          source,
+          staging,
+        );
+        if (active) target.innerHTML = svg;
+      } finally {
+        staging.remove();
+      }
     } catch {
       if (!active) return;
       target.classList.add("diagram-error");
