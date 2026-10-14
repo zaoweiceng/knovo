@@ -50,7 +50,8 @@ import Heatmap from "./Heatmap";
 import SidebarResizer from "./SidebarResizer";
 import FilterPicker from "./FilterPicker";
 const Graph = lazy(() => import("./Graph"));
-type View = "home" | "library" | "detail" | "review" | "graph" | "timeline";
+import { usePageNavigation, scrollToTop, type View } from "./usePageNavigation";
+const LIBRARY_PAGE_SIZE = 20;
 type TrashItem = {
   token: string;
   id: string;
@@ -70,6 +71,52 @@ const emptyStats: Stats = {
   errors: [],
 };
 export default function App() {
+  const {
+    view,
+    setView,
+    selected,
+    setSelected,
+    category,
+    setCategory,
+    q,
+    setQ,
+    tags,
+    setTags,
+    page: libraryPage,
+    setLibraryPage,
+    fromDate,
+    setFromDate,
+    toDate,
+    setToDate,
+    back,
+    canGoBack,
+  } = usePageNavigation();
+  const [notesFilter, setNotesFilter] = useState("");
+  const filterKey = JSON.stringify([q, category, tags]);
+  const lastLibrary = useRef({ q, category, tags, page: libraryPage });
+  useEffect(() => {
+    if (view === "library")
+      lastLibrary.current = { q, category, tags, page: libraryPage };
+  }, [view, q, category, tags, libraryPage]);
+  const [reviewCategory, setReviewCategory] = useState(() => {
+    try {
+      const saved = JSON.parse(
+        localStorage.getItem("knowledge-review-category") || '""',
+      );
+      return typeof saved === "string" ? saved : "";
+    } catch {
+      return "";
+    }
+  });
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        "knowledge-review-category",
+        JSON.stringify(reviewCategory),
+      );
+    } catch {}
+  }, [reviewCategory]);
+  const [reviewsLoading, setReviewsLoading] = useState(true);
   const [relationsWidth, setRelationsWidth] = useState(() => {
     try {
       const n = Number(localStorage.getItem("knowledge-relations-width"));
@@ -147,12 +194,7 @@ export default function App() {
   const [stats, setStats] = useState<Stats>(emptyStats),
     [all, setAll] = useState<Note[]>([]),
     [notes, setNotes] = useState<Note[]>([]),
-    [view, setView] = useState<View>("home"),
-    [selected, setSelected] = useState<string | null>(null),
     [detail, setDetail] = useState<Detail | null>(null),
-    [category, setCategory] = useState<string[]>([]),
-    [q, setQ] = useState(""),
-    [tag, setTag] = useState(""),
     [dirQuery, setDirQuery] = useState(""),
     [error, setError] = useState(""),
     [loading, setLoading] = useState(true),
@@ -177,8 +219,6 @@ export default function App() {
         summary: string;
       }[]
     >([]),
-    [fromDate, setFromDate] = useState(""),
-    [toDate, setToDate] = useState(""),
     [showIssues, setShowIssues] = useState(false);
   const [editor, setEditor] = useState<{ id?: string; paste?: boolean } | null>(
     null,
@@ -232,9 +272,14 @@ export default function App() {
     const timer = setTimeout(
       () =>
         api<Note[]>(
-          `/notes?q=${encodeURIComponent(q)}&category=${encodeURIComponent(category.length ? JSON.stringify(category) : "")}&tag=${encodeURIComponent(tag)}`,
+          `/notes?q=${encodeURIComponent(q)}&category=${encodeURIComponent(category.length ? JSON.stringify(category) : "")}${tags.map((tag) => `&tag=${encodeURIComponent(tag)}`).join("")}`,
         )
-          .then((n) => alive && setNotes(n))
+          .then((n) => {
+            if (alive) {
+              setNotes(n);
+              setNotesFilter(filterKey);
+            }
+          })
           .catch((e) => alive && setError(e.message)),
       150,
     );
@@ -242,7 +287,7 @@ export default function App() {
       alive = false;
       clearTimeout(timer);
     };
-  }, [q, category, tag, stats.version]);
+  }, [q, category, tags, stats.version]);
   useEffect(() => {
     if (!selected) {
       setDetail(null);
@@ -262,14 +307,27 @@ export default function App() {
     };
   }, [selected, stats.version]);
   useEffect(() => {
-    if (view === "review")
+    let active = true;
+    if (view === "review") {
+      setReviewsLoading(true);
       api<Note[]>("/reviews")
-        .then(setReviewQueue)
-        .catch((e) => setError(e.message));
+        .then((items) => {
+          if (active) setReviewQueue(items);
+        })
+        .catch((e) => {
+          if (active) setError(e.message);
+        })
+        .finally(() => {
+          if (active) setReviewsLoading(false);
+        });
+    }
     if (view === "timeline")
       api<typeof timeline>("/timeline")
         .then(setTimeline)
         .catch((e) => setError(e.message));
+    return () => {
+      active = false;
+    };
   }, [view, stats.version]);
   useEffect(() => {
     let active = true;
@@ -287,6 +345,7 @@ export default function App() {
     };
   }, [selectedDay, stats.version]);
   const read = (id: string) => {
+    scrollToTop();
     setSelected(id);
     if (selected !== id) setDetail(null);
     setView("detail");
@@ -301,6 +360,7 @@ export default function App() {
         ? category
         : [];
   const navigate = (next: View) => {
+    scrollToTop();
     setView(next);
     setLeftOpen(false);
     setError("");
@@ -308,7 +368,19 @@ export default function App() {
     if (next === "home") {
       setQ("");
       setCategory([]);
-      setTag("");
+      setTags([]);
+    }
+  };
+  const returnToLibrary = () => {
+    const previous = lastLibrary.current;
+    if (previous.category.length || previous.tags.length) {
+      setQ(previous.q);
+      setCategory(previous.category);
+      setTags(previous.tags);
+      setLibraryPage(previous.page);
+      navigate("library");
+    } else {
+      navigate("home");
     }
   };
   const upload = async (files: FileList | File[]) => {
@@ -402,7 +474,19 @@ export default function App() {
       setError((e as Error).message);
     }
   };
-  const current = reviewQueue[0];
+  const totalPages = Math.max(1, Math.ceil(notes.length / LIBRARY_PAGE_SIZE));
+  const currentPage = Math.min(libraryPage, totalPages);
+  const pageStart = (currentPage - 1) * LIBRARY_PAGE_SIZE;
+  const reviewCategories = Array.from(
+    new Set(all.map((note) => note.category[0]).filter(Boolean)),
+  ).sort((a, b) => a.localeCompare(b, "zh-CN"));
+  const filteredReviewQueue = reviewCategory
+    ? reviewQueue.filter((note) => note.category[0] === reviewCategory)
+    : reviewQueue;
+  const current = filteredReviewQueue[0];
+  useEffect(() => {
+    setRevealed(false);
+  }, [reviewCategory, current?.id]);
   const renderList = (list: Note[], compact = false) => (
     <div className={`note-list ${compact ? "compact" : ""}`}>
       {list.map((n) => (
@@ -530,7 +614,7 @@ export default function App() {
             className={view === "library" || view === "detail" ? "active" : ""}
             onClick={() => {
               setCategory([]);
-              setTag("");
+              setTags([]);
               navigate("library");
             }}
           >
@@ -584,7 +668,7 @@ export default function App() {
             active={selected || undefined}
             onSelect={(p) => {
               setCategory(p);
-              if (view !== "graph") setView("library");
+              navigate(view === "graph" ? "graph" : "library");
               setLeftOpen(false);
             }}
             onNote={read}
@@ -655,6 +739,15 @@ export default function App() {
       <div className="main-shell">
         <header className="topbar">
           <button
+            className="icon-btn"
+            aria-label="返回上一页"
+            title="返回上一页"
+            disabled={!canGoBack}
+            onClick={back}
+          >
+            <ArrowLeft size={18} />
+          </button>
+          <button
             className="icon-btn mobile-only"
             aria-label="打开目录"
             onClick={() => setLeftOpen(true)}
@@ -662,9 +755,19 @@ export default function App() {
             <PanelLeft size={18} />
           </button>
           <nav className="breadcrumb" aria-label="当前目录路径">
-            {view !== "detail" && currentPath.length > 0 && (
+            {(view === "library" || view === "detail") && (
               <>
-                <span>{view === "graph" ? "知识网络" : "知识库"}</span>
+                <button type="button" onClick={returnToLibrary}>
+                  知识库
+                </button>
+                {currentPath.length > 0 && (
+                  <ChevronRight size={13} aria-hidden="true" />
+                )}
+              </>
+            )}
+            {view === "graph" && currentPath.length > 0 && (
+              <>
+                <span>知识网络</span>
                 <ChevronRight size={13} aria-hidden="true" />
               </>
             )}
@@ -683,7 +786,7 @@ export default function App() {
                     onClick={() => {
                       setCategory(currentPath.slice(0, index + 1));
                       setQ("");
-                      setTag("");
+                      setTags([]);
                       setDirQuery("");
                       setRightOpen(false);
                       navigate(view === "graph" ? "graph" : "library");
@@ -693,7 +796,7 @@ export default function App() {
                   </button>
                 </Fragment>
               ))
-            ) : (
+            ) : view !== "library" && view !== "detail" ? (
               <span>
                 {
                   {
@@ -706,7 +809,7 @@ export default function App() {
                   }[view]
                 }
               </span>
-            )}
+            ) : null}
           </nav>
           <div className="header-actions">
             <label className="global-search">
@@ -967,8 +1070,9 @@ export default function App() {
                       />
                       <FilterPicker
                         label="筛选关键词"
-                        value={tag}
-                        onChange={setTag}
+                        multiple
+                        value={tags}
+                        onChange={setTags}
                         tags={Array.from(
                           new Set(
                             all
@@ -991,13 +1095,13 @@ export default function App() {
                               b.count - a.count || a.name.localeCompare(b.name),
                           )}
                       />
-                      {(q || category.length > 0 || tag) && (
+                      {(q || category.length > 0 || tags.length > 0) && (
                         <button
                           className="text-btn"
                           onClick={() => {
                             setQ("");
                             setCategory([]);
-                            setTag("");
+                            setTags([]);
                           }}
                         >
                           清除筛选
@@ -1005,7 +1109,7 @@ export default function App() {
                         </button>
                       )}
                     </div>
-                    {(category.length > 0 || tag) && (
+                    {(category.length > 0 || tags.length > 0) && (
                       <div className="active-filters">
                         {category.length > 0 && (
                           <button
@@ -1016,19 +1120,76 @@ export default function App() {
                             <X size={12} />
                           </button>
                         )}
-                        {tag && (
+                        {tags.map((tag) => (
                           <button
-                            onClick={() => setTag("")}
-                            title="移除关键词筛选"
+                            key={tag}
+                            onClick={() =>
+                              setTags(tags.filter((value) => value !== tag))
+                            }
+                            title={`移除关键词 ${tag}`}
                           >
                             #{tag}
                             <X size={12} />
                           </button>
-                        )}
+                        ))}
                       </div>
                     )}
-                    {notes.length ? (
-                      renderList(notes)
+                    {notesFilter !== filterKey ? (
+                      <div className="empty" role="status">
+                        正在加载知识…
+                      </div>
+                    ) : notes.length ? (
+                      <>
+                        {renderList(
+                          notes.slice(pageStart, pageStart + LIBRARY_PAGE_SIZE),
+                        )}
+                        <nav
+                          className="library-pagination"
+                          aria-label="知识库分页"
+                        >
+                          <span className="muted" aria-live="polite">
+                            共 {notes.length} 条 · 第 {pageStart + 1}–
+                            {Math.min(
+                              pageStart + LIBRARY_PAGE_SIZE,
+                              notes.length,
+                            )}{" "}
+                            条
+                          </span>
+                          <div className="button-row">
+                            <button
+                              className="btn"
+                              disabled={currentPage === 1}
+                              onClick={() => setLibraryPage(currentPage - 1)}
+                            >
+                              上一页
+                            </button>
+                            <label>
+                              第{" "}
+                              <select
+                                aria-label="跳转页码"
+                                value={currentPage}
+                                onChange={(e) =>
+                                  setLibraryPage(Number(e.target.value))
+                                }
+                              >
+                                {Array.from({ length: totalPages }, (_, i) => (
+                                  <option key={i + 1} value={i + 1}>
+                                    {i + 1}
+                                  </option>
+                                ))}
+                              </select>{" "}
+                              / {totalPages} 页
+                            </label>
+                            <button
+                              className="btn"
+                              disabled={currentPage === totalPages}
+                              onClick={() => setLibraryPage(currentPage + 1)}
+                            >
+                              下一页
+                            </button>
+                          </div>
+                        </nav>
+                      </>
                     ) : (
                       <div className="empty">
                         <Search size={30} />
@@ -1039,7 +1200,7 @@ export default function App() {
                   </>
                 )}
                 {view === "detail" &&
-                  (detail ? (
+                  (detail && detail.id === selected ? (
                     <article className="article">
                       <div className="article-toolbar">
                         <button
@@ -1089,7 +1250,7 @@ export default function App() {
                           <button
                             key={t}
                             onClick={() => {
-                              setTag(t);
+                              setTags([t]);
                               setView("library");
                             }}
                           >
@@ -1097,7 +1258,7 @@ export default function App() {
                           </button>
                         ))}
                       </div>
-                      <Markdown body={detail.body} />
+                      <Markdown key={detail.id} body={detail.body} />
                       <section className="learning-log">
                         <h3>学习足迹</h3>
                         {detail.learning_events.map((e, i) => (
@@ -1138,6 +1299,7 @@ export default function App() {
                               await changeReview(detail.id, {
                                 immediate: true,
                               });
+                              setReviewCategory(detail.category[0] || "");
                               navigate("review");
                             }}
                           >
@@ -1155,10 +1317,42 @@ export default function App() {
                   ))}
                 {view === "review" && (
                   <>
-                    <div className="review-progress muted">
-                      剩余 {reviewQueue.length} 个
+                    <div className="filter-row">
+                      <label className="review-category-filter">
+                        复习大类
+                        <select
+                          className="filter-trigger"
+                          aria-label="复习大类"
+                          value={reviewCategory}
+                          onChange={(e) => {
+                            setReviewCategory(e.target.value);
+                            setRevealed(false);
+                          }}
+                        >
+                          <option value="">全部类别</option>
+                          {reviewCategory &&
+                            !reviewCategories.includes(reviewCategory) && (
+                              <option value={reviewCategory}>
+                                {reviewCategory}（暂无知识点）
+                              </option>
+                            )}
+                          {reviewCategories.map((name) => (
+                            <option key={name} value={name}>
+                              {name}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <span className="muted tiny">
+                        包含该大类下的全部子目录，自动记住选择
+                      </span>
                     </div>
-                    {current ? (
+                    <div className="review-progress muted">
+                      {reviewsLoading
+                        ? "正在加载复习…"
+                        : `剩余 ${filteredReviewQueue.length} 个`}
+                    </div>
+                    {reviewsLoading ? null : current ? (
                       <section className="review-card" key={current.id}>
                         <div className="eyebrow">
                           {current.category.join(" / ")}
@@ -1232,7 +1426,11 @@ export default function App() {
                         <span className="complete-icon">
                           <Check size={30} />
                         </span>
-                        <h2>今天的回顾，完成了。</h2>
+                        <h2>
+                          {reviewCategory
+                            ? `「${reviewCategory}」今天暂无待复习知识点。`
+                            : "今天的回顾，完成了。"}
+                        </h2>
                         <p>给知识一点时间，下次再见。</p>
                         <button
                           className="btn"

@@ -3,6 +3,7 @@ import { markdownPlugins } from "./markdownPlugins";
 import { Children, isValidElement, memo } from "react";
 import KnowledgeImage from "./KnowledgeImage";
 import MermaidDiagram from "./MermaidDiagram";
+import ChatKitWidget from "./ChatKitWidget";
 
 // React uses these functions as component types. Recreating them during a
 // parent refresh unmounts every diagram/image even when its content is unchanged.
@@ -13,6 +14,16 @@ const markdownComponents: Components = {
     </a>
   ),
   img: ({ alt, src }) => <KnowledgeImage src={src} alt={alt} />,
+  table: ({ children }) => (
+    <div
+      className="markdown-table-scroll"
+      role="region"
+      aria-label="表格"
+      tabIndex={0}
+    >
+      <table>{children}</table>
+    </div>
+  ),
   pre: ({ children }) => {
     const child = Children.toArray(children)[0];
     if (
@@ -25,6 +36,15 @@ const markdownComponents: Components = {
         />
       );
     }
+    if (
+      isValidElement<{ className?: string; children?: unknown }>(child) &&
+      child.props.className?.split(/\s+/).includes("language-chatkit")
+    )
+      return (
+        <ChatKitWidget
+          source={String(child.props.children ?? "").replace(/\n$/, "")}
+        />
+      );
     return <pre>{children}</pre>;
   },
 };

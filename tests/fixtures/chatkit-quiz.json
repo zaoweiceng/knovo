@@ -1,0 +1,78 @@
+{
+  "type": "Card",
+  "children": [
+    {
+      "type": "Row",
+      "gap": 2,
+      "children": [
+        {
+          "type": "Icon",
+          "name": "lightbulb"
+        },
+        {
+          "type": "Badge",
+          "label": "主动回忆",
+          "color": "info"
+        }
+      ]
+    },
+    {
+      "type": "Title",
+      "value": "怎样检验自己是否理解了一个概念？",
+      "size": "md"
+    },
+    {
+      "type": "Text",
+      "value": "先选择一种做法，再查看解释。"
+    },
+    {
+      "type": "Form",
+      "onSubmitAction": {
+        "type": "study.check",
+        "handler": "client",
+        "payload": {
+          "field": "answer",
+          "answer": "explain",
+          "explanation": "合上资料后用自己的话解释，并举出适用例子，才能暴露理解上的缺口。仅觉得眼熟不能证明掌握；逐字背诵也可能缺少理解。解释与举例更能检验能否应用。"
+        }
+      },
+      "children": [
+        {
+          "type": "Select",
+          "name": "answer",
+          "placeholder": "选择你的答案",
+          "options": [
+            {
+              "label": "再读一遍，感觉熟悉即可",
+              "value": "reread"
+            },
+            {
+              "label": "合上资料，解释原理并举例",
+              "value": "explain"
+            },
+            {
+              "label": "逐字背出定义，不必理解例子",
+              "value": "memorize"
+            }
+          ]
+        },
+        {
+          "type": "Button",
+          "label": "检查答案",
+          "submit": true
+        }
+      ]
+    },
+    {
+      "type": "Button",
+      "label": "查看解题提示",
+      "onClickAction": {
+        "type": "study.reveal",
+        "handler": "client",
+        "payload": {
+          "text": "区分熟悉感与理解：哪种做法更容易暴露理解上的缺口？"
+        }
+      }
+    }
+  ]
+}

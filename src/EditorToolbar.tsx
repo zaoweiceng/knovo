@@ -1,3 +1,4 @@
+import { chatkitTemplates } from "./chatkitExample";
 import { useEffect, useRef, useState, type RefObject } from "react";
 import type { Editor } from "@tiptap/react";
 import {
@@ -160,6 +161,21 @@ export default function EditorToolbar({
         case "blockMath":
           c.insertBlockMath({ latex: "P(token_{t+1} \\mid tokens)" }).run();
           break;
+        case "chatkit":
+        case "paginationCard":
+        case "queueAnimation":
+        case "stackAnimation":
+          c.insertContent({
+            type: "codeBlock",
+            attrs: { language: "chatkit" },
+            content: [
+              {
+                type: "text",
+                text: JSON.stringify(chatkitTemplates[action], null, 2),
+              },
+            ],
+          }).run();
+          break;
         case "mermaid":
           c.insertContent({
             type: "codeBlock",
@@ -258,6 +274,10 @@ export default function EditorToolbar({
     ["inlineMath", "行内公式", "$…$"],
     ["blockMath", "独立公式", "$$…$$"],
     ["mermaid", "Mermaid 流程图", ""],
+    ["chatkit", "图文探索卡片", ""],
+    ["paginationCard", "分页信息图卡片", ""],
+    ["queueAnimation", "队列 FIFO 动画", ""],
+    ["stackAnimation", "栈 LIFO 动画", ""],
     ["quote", "引用", ""],
     ["bullet", "项目列表", ""],
     ["ordered", "编号列表", ""],

@@ -1,3 +1,5 @@
+import { chatkitTemplates } from "./chatkitExample";
+
 export function formatMarkdown(
   text: string,
   start: number,
@@ -25,6 +27,19 @@ export function formatMarkdown(
   } else if (action === "blockMath") {
     value =
       "\n\n$$\n" + (selected || "P(token_{t+1} \\mid tokens)") + "\n$$\n\n";
+  } else if (
+    ["chatkit", "paginationCard", "queueAnimation", "stackAnimation"].includes(
+      action,
+    )
+  ) {
+    value =
+      "\n\n```chatkit\n" +
+      JSON.stringify(
+        chatkitTemplates[action as keyof typeof chatkitTemplates],
+        null,
+        2,
+      ) +
+      "\n```\n\n";
   } else if (action === "mermaid") {
     value =
       "\n\n```mermaid\n" +

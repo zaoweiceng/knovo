@@ -438,6 +438,34 @@ small {
 .main-content > div:not(.page-footer) {
   min-width: 0;
 }
+.library-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+  font-size: 13px;
+}
+.library-pagination select {
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: #fff;
+}
+.review-category-filter {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 13px;
+  min-width: 0;
+}
+.review-category-filter select {
+  max-width: 240px;
+  min-width: 120px;
+}
 .page-intro {
   display: flex;
   align-items: center;
@@ -1139,21 +1167,41 @@ input[type="date"] {
   background: #f3f3f3;
   color: #8e8e8e;
 }
+.markdown-table-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+  margin: 24px auto;
+}
 .markdown table {
-  display: block;
-  overflow: auto;
+  width: 100%;
   border-collapse: collapse;
-  margin: 20px 0;
-  font-size: 12px;
+  margin: 24px auto;
+  border-top: 1px solid #cfcfcf;
+  border-bottom: 1px solid #cfcfcf;
+  font-size: inherit;
+  line-height: 1.7;
+}
+.markdown-table-scroll > table {
+  margin: 0;
 }
 .markdown th,
 .markdown td {
-  padding: 8px 13px;
-  border: 1px solid #e3e3e3;
+  padding: 12px 18px;
+  border: 0;
+  border-bottom: 1px solid var(--border);
   text-align: left;
+  vertical-align: top;
+  min-width: 6em;
+  overflow-wrap: anywhere;
 }
 .markdown th {
-  background: #f0f0f0;
+  background: transparent;
+  color: #353535;
+  font-weight: 600;
+  border-bottom-color: #cfcfcf;
+}
+.markdown tr:last-child td {
+  border-bottom: 0;
 }
 .markdown hr {
   border: 0;
@@ -2217,10 +2265,20 @@ body.resizing-sidebar * {
 .picker-option {
   display: flex;
   border-radius: 6px;
+  border: 1px solid transparent;
 }
-.picker-option:hover,
+.picker-option + .picker-option {
+  margin-top: 5px;
+}
+.picker-option:hover {
+  background: #f7f7f7;
+}
 .picker-option.selected {
-  background: #f2f2f2;
+  background: #eeeeee;
+  border-color: #dedede;
+}
+.picker-option.selected:hover {
+  background: #e8e8e8;
 }
 .picker-select {
   display: flex;
@@ -2857,23 +2915,12 @@ body.resizing-sidebar * {
   min-height: 1.5em;
 }
 .visual-document table {
-  border-collapse: collapse;
   table-layout: fixed;
-  width: 100%;
-  margin: 1em 0;
   overflow: visible;
 }
 .visual-document td,
 .visual-document th {
-  min-width: 70px;
-  border: 1px solid #d8d8d8;
-  vertical-align: top;
-  padding: 8px 12px;
   position: relative;
-}
-.visual-document th {
-  background: #f5f5f5;
-  font-weight: 600;
 }
 .visual-document td > p,
 .visual-document th > p {
@@ -2928,9 +2975,6 @@ body.resizing-sidebar * {
   .editor-mode {
     margin-left: auto;
   }
-}
-.visual-document table {
-  display: table;
 }
 .writing-menu .menu-group-start {
   border-top: 1px solid #e8e8e8;
@@ -3186,3 +3230,195 @@ body.resizing-editor * {
 @keyframes graph-node-appear { from { opacity: 0; } to { opacity: 1; } }
 .react-flow__node-topology { animation: graph-node-appear 180ms ease-out; }
 @media (prefers-reduced-motion: reduce) { .react-flow__node-topology { animation: none; } }
+
+/* ChatKit-compatible learning widgets; generated data never supplies raw CSS. */
+.chatkit-widget {
+  margin: 20px 0;
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: #fff;
+  overflow-wrap: anywhere;
+  color: #353535;
+}
+.ck-heading {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.ck-heading button {
+  display: inline-flex;
+  gap: 5px;
+  align-items: center;
+}
+.chatkit-widget .ck-node {
+  margin: 0;
+  min-width: 0;
+}
+.chatkit-widget
+  :is(
+    .ck-card,
+    .ck-listview,
+    .ck-listviewitem,
+    .ck-box,
+    .ck-row,
+    .ck-col,
+    .ck-form
+  ) {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.chatkit-widget .ck-row {
+  align-items: center;
+  flex-wrap: wrap;
+}
+.chatkit-widget .ck-listviewitem + .ck-listviewitem {
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+}
+.chatkit-widget .ck-title {
+  font-size: 18px;
+  line-height: 1.5;
+}
+.chatkit-widget .ck-text {
+  white-space: pre-wrap;
+}
+.chatkit-widget .ck-caption,
+.chatkit-widget .ck-secondary {
+  color: #707070;
+}
+.chatkit-widget .ck-badge {
+  padding: 3px 9px;
+  border-radius: 6px;
+  font-size: 12px;
+  background: #f1f3f5;
+  align-self: flex-start;
+}
+.chatkit-widget .ck-button {
+  padding: 9px 14px;
+  border: 1px solid #d5d8de;
+  border-radius: 8px;
+  background: #f6f7f9;
+  font: inherit;
+  text-align: center;
+  align-self: flex-start;
+}
+.chatkit-widget .ck-button:hover {
+  background: #eaedf2;
+}
+.chatkit-widget .ck-variant-solid {
+  background: #353b48;
+  color: #fff;
+}
+.chatkit-widget .ck-variant-outline {
+  background: transparent;
+  border: 1px solid currentColor;
+}
+.chatkit-widget .ck-variant-ghost {
+  background: transparent;
+  border-color: transparent;
+}
+.chatkit-widget .ck-field {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  font-size: 14px;
+}
+.chatkit-widget .ck-field :is(input, select) {
+  width: 100%;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid #d5d8de;
+  border-radius: 8px;
+  background: #fff;
+  color: #353535;
+}
+.chatkit-widget .ck-divider {
+  width: 100%;
+  border: 0;
+  border-top: 1px solid var(--border);
+  margin: 8px 0;
+}
+.chatkit-widget .ck-spacer {
+  flex: 1;
+  min-height: 8px;
+}
+.chatkit-widget .ck-feedback {
+  padding: 12px 14px;
+  border-radius: 8px;
+  margin-top: 12px;
+  background: #f1f5fa;
+}
+.chatkit-widget .ck-feedback p {
+  margin: 0 0 8px;
+}
+.chatkit-widget .ck-feedback p:last-child {
+  margin-bottom: 0;
+}
+.chatkit-widget .ck-success {
+  color: #226044;
+}
+.chatkit-widget .ck-danger {
+  color: #a03636;
+}
+.chatkit-widget .ck-warning {
+  color: #865c12;
+}
+.chatkit-widget .ck-info {
+  color: #345b87;
+}
+.chatkit-widget .ck-discovery {
+  color: #715a99;
+}
+.chatkit-widget .ck-size-xs {
+  font-size: 12px;
+}
+.chatkit-widget .ck-size-sm {
+  font-size: 13px;
+}
+.chatkit-widget .ck-size-lg {
+  font-size: 20px;
+}
+.chatkit-widget .ck-size-xl {
+  font-size: 24px;
+}
+.ck-error {
+  border-style: dashed;
+}
+.ck-error summary {
+  cursor: pointer;
+  margin-top: 8px;
+}
+.editor-panes:not(.visual-only) .visual-chatkit > pre {
+  display: none;
+}
+.visual-only .visual-chatkit > pre {
+  max-height: 280px;
+  overflow: auto;
+}
+@media (max-width: 600px) {
+  .chatkit-widget {
+    padding: 14px;
+  }
+}
+.chatkit-widget .ck-image { display: block; max-width: 100%; }
+.chatkit-widget .ck-image-frame { border: 1px solid var(--border); padding: 5px; }
+.chatkit-widget .ck-image-error { border: 1px dashed var(--border); border-radius: 8px; padding: 18px; color: var(--muted); }
+.chatkit-widget .ck-select-view, .chatkit-widget .ck-action { min-width: 0; }
+.chatkit-widget .ck-selected-content, .chatkit-widget .ck-action-content { margin-top: 14px; }
+.chatkit-widget .ck-button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+.chatkit-widget .ck-button .ck-chevron-open { transform: rotate(180deg); }
+.ck-transition { position: relative; }
+.ck-transition-overlay { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.chatkit-widget .ck-sequence { background: #f7f9fc; border: 1px solid #e5eaf1; border-radius: 12px; padding: 18px; }
+.chatkit-widget .ck-sequence-controls { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; border-top: 1px solid var(--border); padding-top: 14px; margin-top: 16px; }
+.chatkit-widget .ck-sequence-controls span { font-size: 12px; color: var(--muted); }
+.chatkit-widget .ck-sequence .ck-badge { min-width: 52px; min-height: 38px; padding: 6px 16px; text-align: center; align-self: center; font-weight: 600; }
+.chatkit-widget .ck-sequence .ck-badge.ck-info { background: #daeaf5; }
+.chatkit-widget .ck-sequence .ck-badge.ck-discovery { background: #e9e1f5; }
+.chatkit-widget .ck-sequence .ck-badge.ck-success { background: #deeee5; }

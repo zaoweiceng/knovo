@@ -11,17 +11,19 @@ import {
 
 type Props = {
   label: string;
-  value: string;
-  onChange: (value: string) => void;
   categories?: string[][];
   tags?: { name: string; count: number }[];
-};
+} & (
+  | { multiple?: false; value: string; onChange: (value: string) => void }
+  | { multiple: true; value: string[]; onChange: (value: string[]) => void }
+);
 export default function FilterPicker({
   label,
   value,
   onChange,
   categories,
   tags = [],
+  multiple,
 }: Props) {
   const [open, setOpen] = useState(false),
     [query, setQuery] = useState(""),
@@ -30,14 +32,35 @@ export default function FilterPicker({
   const root = useRef<HTMLDivElement>(null),
     trigger = useRef<HTMLButtonElement>(null),
     panelId = useId();
-  const selected: string[] = categories && value ? JSON.parse(value) : [];
+  const selected: string[] =
+    categories && !multiple && value ? JSON.parse(value) : [];
+  const hasValue = value.length > 0;
+  const isSelected = (key: string) =>
+    multiple ? value.includes(key) : value === key;
+  const caption = multiple
+    ? value.length > 1
+      ? `已选 ${value.length} 个关键词`
+      : value[0]
+    : categories
+      ? selected.at(-1)
+      : value;
   const close = () => {
     setOpen(false);
     trigger.current?.focus();
   };
   const choose = (next: string) => {
-    onChange(next);
-    close();
+    if (multiple) {
+      onChange(
+        !next
+          ? []
+          : value.includes(next)
+            ? value.filter((tag) => tag !== next)
+            : [...value, next],
+      );
+    } else {
+      onChange(next);
+      close();
+    }
   };
   useEffect(() => {
     if (!open) return;
@@ -94,7 +117,7 @@ export default function FilterPicker({
     <div className="filter-picker" ref={root}>
       <button
         ref={trigger}
-        className={`filter-trigger ${value ? "has-value" : ""}`}
+        className={`filter-trigger ${hasValue ? "has-value" : ""}`}
         aria-label={label}
         aria-expanded={open}
         aria-haspopup="dialog"
@@ -105,18 +128,16 @@ export default function FilterPicker({
           setPath([]);
           setLimit(12);
         }}
-        title={categories ? selected.join(" / ") : value}
+        title={
+          multiple
+            ? value.join("、")
+            : categories
+              ? selected.join(" / ")
+              : value
+        }
       >
         {categories ? <Folder size={14} /> : <Hash size={14} />}
-        <span>
-          {value
-            ? categories
-              ? selected.at(-1)
-              : value
-            : categories
-              ? "分类"
-              : "关键词"}
-        </span>
+        <span>{hasValue ? caption : categories ? "分类" : "关键词"}</span>
         <ChevronDown size={13} />
       </button>
       {open && (
@@ -142,7 +163,7 @@ export default function FilterPicker({
           <div className="picker-navigation">
             <button onClick={() => choose("")}>
               {categories ? "全部分类" : "全部关键词"}
-              {!value && <Check size={12} />}
+              {!hasValue && <Check size={12} />}
             </button>
             {categories && path.length > 0 && !needle && (
               <button
@@ -165,24 +186,29 @@ export default function FilterPicker({
             </div>
           )}
           {!categories && !needle && (
-            <div className="picker-caption">常用关键词 · 按知识点数量排序</div>
+            <div className="picker-caption">
+              {multiple
+                ? "可多选 · 匹配任意一个关键词"
+                : "常用关键词 · 按知识点数量排序"}
+            </div>
           )}
           <div className="picker-options">
             {options.slice(0, limit).map((o) => (
               <div
                 key={o.key}
-                className={`picker-option ${value === o.key ? "selected" : ""}`}
+                className={`picker-option ${isSelected(o.key) ? "selected" : ""}`}
               >
                 <button
                   className="picker-select"
                   onClick={() => choose(o.key)}
+                  aria-pressed={multiple ? isSelected(o.key) : undefined}
                   aria-label={`选择${categories ? "分类" : "关键词"} ${categories ? o.path.join(" / ") : o.name}`}
                 >
                   <div>
                     <span>{o.name}</span>
                     {o.caption && <small>{o.caption}</small>}
                   </div>
-                  {value === o.key ? (
+                  {isSelected(o.key) ? (
                     <Check size={14} />
                   ) : o.count !== undefined ? (
                     <small>{o.count}</small>

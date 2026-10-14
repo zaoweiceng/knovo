@@ -94,20 +94,20 @@ test("rendered formulas cannot enable HTML or javascript links", () => {
 test("AI prompt example is valid JSON and survives import and visual Markdown", () => {
   const example = JSON.parse(knowledgePrompt.match(/^\{"body".*$/m)[0]);
   assert.match(example.body, /\\mid tokens/);
-  assert.match(example.body, /```mermaid\nflowchart TD/);
+  assert.doesNotMatch(knowledgePrompt, /```mermaid/);
   const [imported] = parseKnowledgeText(
     JSON.stringify({
       format: "zhixu-knowledge-v1",
       notes: [
         {
           key: "scientific",
-          title: "公式与流程图",
-          summary: "表达数学关系与学习流程",
+          title: "公式",
+          summary: "表达数学关系",
           category: ["测试"],
           tags: [],
           knowledge_keywords: [],
           dependency_keywords: [],
-          learning_events: [{ date: null, summary: "理解公式与流程" }],
+          learning_events: [{ date: null, summary: "理解公式" }],
           status: "ready",
           body: example.body,
         },

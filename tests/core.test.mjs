@@ -1175,3 +1175,34 @@ test("keyword schema requires arrays and preserves identity on keyword edits", a
     /knowledge_keywords/,
   );
 });
+
+test("keyword filters use a deduplicated union, combined with category and search", (t) => {
+  const { store } = fixture(t);
+  for (const [id, tags, category] of [
+    ["a", ["Go"], ["计算机"]],
+    ["b", ["限流"], ["计算机"]],
+    ["both", ["Go", "限流"], ["计算机"]],
+    ["outside", ["Go"], ["数学"]],
+    ["neither", ["其他"], ["计算机"]],
+  ])
+    store.import(serializeNote(note(id, { tags, category })), `${id}.md`);
+  const ids = (options) =>
+    store
+      .list(options)
+      .map((n) => n.id)
+      .sort();
+  assert.deepEqual(ids({ tag: ["Go", "限流", "Go"] }), [
+    "a",
+    "b",
+    "both",
+    "outside",
+  ]);
+  assert.deepEqual(ids({ tag: ["Go", "限流"], category: '["计算机"]' }), [
+    "a",
+    "b",
+    "both",
+  ]);
+  assert.deepEqual(ids({ tag: ["Go", "限流"], q: "知识 both" }), ["both"]);
+  assert.deepEqual(ids({ tag: "限流" }), ["b", "both"]);
+  assert.equal(ids({ tag: [] }).length, 5);
+});

@@ -1,3 +1,6 @@
+import { createElement } from "react";
+import { createRoot, type Root } from "react-dom/client";
+import ChatKitWidget from "./ChatKitWidget";
 import { InputRule, type NodeViewRenderer } from "@tiptap/core";
 import CodeBlock from "@tiptap/extension-code-block";
 import { InlineMath, BlockMath } from "@tiptap/extension-mathematics";
@@ -154,16 +157,36 @@ export const VisualCodeBlock = CodeBlock.extend({
       const preview = document.createElement("div");
       preview.contentEditable = "false";
       dom.append(pre, preview);
+      let widgetRoot: Root | undefined;
       let cancelRender: (() => void) | undefined;
       let timer: ReturnType<typeof setTimeout> | undefined;
       const render = () => {
         clearTimeout(timer);
         cancelRender?.();
         const diagram = node.attrs.language?.split(/\s+/)[0] === "mermaid";
-        preview.hidden = !diagram;
+        const widget = node.attrs.language?.split(/\s+/)[0] === "chatkit";
+        preview.hidden = !diagram && !widget;
+        if (!widget && widgetRoot) {
+          const previous = widgetRoot;
+          widgetRoot = undefined;
+          // Defer unmount: TipTap may destroy views during a React commit.
+          queueMicrotask(() => previous.unmount());
+        }
+        if (widget) {
+          if (!widgetRoot) {
+            const host = document.createElement("div");
+            preview.replaceChildren(host);
+            widgetRoot = createRoot(host);
+          }
+          widgetRoot.render(
+            createElement(ChatKitWidget, { source: node.textContent }),
+          );
+        }
         dom.className = diagram
           ? "visual-code-block visual-mermaid"
-          : "visual-code-block";
+          : widget
+            ? "visual-code-block visual-chatkit"
+            : "visual-code-block";
         contentDOM.className = node.attrs.language
           ? `language-${node.attrs.language}`
           : "";
@@ -196,6 +219,8 @@ export const VisualCodeBlock = CodeBlock.extend({
         destroy() {
           clearTimeout(timer);
           cancelRender?.();
+          const previous = widgetRoot;
+          if (previous) queueMicrotask(() => previous.unmount());
         },
       };
     };

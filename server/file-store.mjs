@@ -651,7 +651,9 @@ export class Store {
       const cats = JSON.parse(category);
       rows = rows.filter((n) => cats.every((c, i) => n.category[i] === c));
     }
-    if (tag) rows = rows.filter((n) => n.tags.includes(tag));
+    const tags = (Array.isArray(tag) ? tag : [tag]).filter(Boolean);
+    if (tags.length)
+      rows = rows.filter((n) => tags.some((t) => n.tags.includes(t)));
     if (date) {
       const ids = new Set(
         this.db

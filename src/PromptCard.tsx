@@ -32,7 +32,7 @@ export default function PromptCard({ onPaste }: { onPaste: () => void }) {
         <h3>把一次对话，变成可以回顾的知识</h3>
         <p>
           复制提示词 → 发到原来的 AI 对话窗口 →
-          将返回的文本块粘贴导入，支持一次导入多个知识点。
+          将返回的文本块粘贴导入，支持多个知识点及图文、内容切换及动画演示卡片。
         </p>
       </div>
       <div className="prompt-actions">

@@ -138,7 +138,7 @@ P(token_{t+1} \mid tokens)
 $$
 ```
 
-流程图写在 `mermaid` 代码块中：
+手动编写或明确要求 Mermaid 时，图表仍可写在 `mermaid` 代码块中：
 
 ````markdown
 ```mermaid
@@ -148,7 +148,7 @@ flowchart TD
 ```
 ````
 
-整理提示词会引导 AI 在有助于理解时使用公式和图表，并解释符号与步骤。粘贴导入的 JSON 中，换行写成 `\n`，LaTeX 反斜杠写成 `\\`，节点标签的双引号写成 `\"`；直接编辑 Markdown 时使用原始语法。保存、Markdown 导出和再次导入保留公式及图表源码。
+整理提示词先按知识关系选择表达：并列差异用对比，组成/比例用带标签的分区图，状态变化用分步演示，流程（包括分支、依赖和参与者交互）也优先使用 `chatkit` 组件。主流程用固定区域和可跟踪对象表示，分支按条件切换；涉及状态或位置变化时，场景内还必须提供动画帧，不能用编号列表或文字切换代替过程。子流程按需展开；复杂流程按阶段拆分，保留入口、分支条件、汇合/结束点，循环和并行关系明确说明。避免一次铺开所有连线；仅在用户明确要求 Mermaid 格式时生成 Mermaid。粘贴导入的 JSON 中，换行写成 `\n`，LaTeX 反斜杠写成 `\\`，节点标签的双引号写成 `\"`；直接编辑 Markdown 时使用原始语法。保存、Markdown 导出和再次导入保留公式及图表源码。
 
 「图片」选择 PNG、JPEG、GIF 或 WebP（单张最多 10 MB）。图片二进制存入独立的 `.knowledge/assets.sqlite`，知识索引与复习状态保留在 `.knowledge/knowledge.sqlite`。两个数据库分别启用 WAL；图片存入 assets 表，以内容 SHA-256 去重，Markdown 使用稳定的 `/api/assets/<hash>` 引用。迁移 ZIP v2 自动包含被引用的图片原始二进制并校验哈希；导入兼容旧版 v1，无需外部图片目录。正文最多 20 MB，含图片总内容最多 95 MB，ZIP 最多 100 MB。
 
@@ -178,3 +178,54 @@ flowchart TD
 正式记录存于 `.knowledge/knowledge.sqlite`：`documents` 保存完整正文来源，`notes` 保存检索元信息，`deleted_documents` 保存回收站，`document_history` 保存编辑前版本，`maintenance_state` 保存维护状态与归档。图片仍保存在独立的 `assets.sqlite`。网页中路径仅为分类或逻辑导出路径，不对应必须维护的磁盘文件。
 
 旧独立 Markdown 库仍可使用维护脚本。对 SQLite 库，`scan/read/apply/restore/validate` 自动使用数据库：`read --file <逻辑路径.md>` 返回正文和指纹，维护操作使用临时工作区并在完成后将内容与批次归档一起事务提交，临时文件随即清理。`pnpm run demo` 也直接入库。
+
+### 交互卡片：图文、内容切换与动画
+
+工具栏「段落」菜单提供「图文探索卡片」「分页信息图卡片」「队列 FIFO 动画」「栈 LIFO 动画」四个可修改的示例。正文使用 `chatkit` 代码围栏，里面是组件 JSON。双栏编辑时左侧编辑原始 JSON，右侧显示图片或可操作的组件；所见即所得模式保留 JSON 编辑区和下方预览。保存、Markdown 导出与再次导入保留 JSON，不保存临时交互状态。
+
+卡片可用 Col/Row/Box 直接排出步骤信息图：等宽浅色块、圆角标签、箭头文字均保留为可编辑内容；background 支持十六进制颜色及 transparent。卡片是通用内容容器，可以只有一张图片，也可以组合图文、可折叠解释、视图切换、分步演示或练习。整理提示词要求先解释、观察和比较，再按需练习；不能用一道选择题替代知识讲解。每张卡片聚焦一个问题，初始状态直接呈现关键内容，场景切换显示条件、结果和原因，分步演示说明每次操作前后的状态。默认使用克制的字号、少量强调色、可换行布局和最多两个主要/次要操作。
+
+设计参考来自 [OpenAI UI guidelines](https://developers.openai.com/plugins/concepts/ui-guidelines) 的单一用途、少量操作、简洁层级和自适应布局原则。官方 [MCP Apps UI](https://developers.openai.com/plugins/build/chatgpt-ui) 通过 iframe 与宿主通信；本应用则将 Markdown 中的组件 JSON 校验后映射为本地 React 组件，无需接入该 iframe 协议。公开文档不能证明某张 ChatGPT 网页截图采用了哪种内部渲染方式，这里参考公开设计原则，不宣称复刻其内部实现。
+
+当前按 [官方 Widgets 协议](https://developers.openai.com/api/docs/guides/chatkit-widgets) 实现本地子集，不是完整 ChatKit SDK/聊天服务。支持 Card、ListView、ListViewItem、Box、Row、Col、Title、Text、Caption、Markdown、Badge、Icon、Image、Divider、Spacer、Button、Form、Select、Transition。属性范围见页面「查看提示词」；[Widget Builder](https://widgets.chatkit.studio/) 导出的内容仍需遵循这个子集。未知组件或属性会显示原因和原始 JSON。
+
+Image 可以展示已有 HTTPS 图片、上传到 `/api/assets/<哈希>` 的图片及应用内置示例图片；支持尺寸、裁切、圆角、边框和替代文字。HTTPS 图片直接由浏览器加载，不会自动下载进知识库。上传图片可随 ZIP 迁移包一起导出，JSON 分支内尚未显示的图片引用也会被收集。图片加载失败时显示替代说明，其余内容仍可阅读。
+
+以下是应用自定义的本地动作，遵循 [ChatKit Actions](https://developers.openai.com/api/docs/guides/chatkit-actions) 结构，都使用 `handler: "client"`：
+
+| 动作 | 绑定位置与数据 | 效果 |
+| --- | --- | --- |
+| `widget.toggle` | Button/ListViewItem 的 onClickAction；payload.content 是一个组件 | 展开或收起图文、解释或其它组件 |
+| `widget.select` | Select 的 onChangeAction；payload.views 为 `{value, content}` 数组，与 options 一一对应 | 切换图片、视角、场景或概念解释；可用 defaultValue 设置初始视图 |
+| `widget.sequence` | Button 的 onClickAction；payload.frames 是 2–20 个组件，intervalMs 为 500–5000 | 打开动画播放器，支持单步、播放/暂停和重置，到最后一帧停止 |
+| `study.reveal` | Button/ListViewItem 的 onClickAction；payload.text 为 Markdown | 展示提示或参考说明，兼容已有卡片 |
+| `study.check` | Form 的 onSubmitAction；payload 包含 field、answer、explanation | 精确匹配表单值并展示反馈，不调用 LLM 语义判分 |
+
+卡片首屏直接展示初始图；点击「打开演示」后可单步查看或点击「播放」。场景切换本身不是动画。动画由预先生成的状态序列驱动，适用于队列/栈、算法步骤、流程和状态变化。每一帧使用普通组件描述完整状态；用相同 `key` 标识跨帧同一元素，就能看到移动、进入与离开的过渡；同位置对象的数值或状态改变也会有淡入反馈。`Transition.children` 为一个组件对象，用于包装内容过渡。队列示例先加入 A、B、C，再按 A、B、C 离开；栈示例则按 C、B、A 离开。隐藏页面、收起播放器或离开卡片会暂停/清理播放计时；系统的「减少动态效果」设置会关闭移动动画，但保留单步查看。这里不执行 JSON 中的脚本，也不提供任意物理模拟。
+
+所有分支及动画帧一起受每块 64 KB、200 个节点、12 层嵌套限制；交互不会自动修改复习进度。
+
+最小非问答示例：
+
+````markdown
+```chatkit
+{
+  "type": "Card",
+  "children": [
+    { "type": "Title", "value": "分层观察" },
+    { "type": "Text", "value": "先看总体，再按需展开细节。" },
+    {
+      "type": "Button",
+      "label": "展开说明",
+      "onClickAction": {
+        "type": "widget.toggle",
+        "handler": "client",
+        "payload": {
+          "content": { "type": "Markdown", "value": "**细节层**：这里可以放原理、图文或具体例子。" }
+        }
+      }
+    }
+  ]
+}
+```
+````
